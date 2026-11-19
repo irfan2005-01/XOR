@@ -46,7 +46,7 @@ export const howItWorksSteps: HowItWorksStep[] = [
     stepNumber: "01",
     title: "Create Account",
     description:
-      "Register in seconds using your LAEC USN, branch, semester, and student email.",
+      "Register in seconds using your LAEC USN, branch, and student email.",
   },
   {
     stepNumber: "02",

@@ -3,20 +3,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth, type AuthModalMode } from "@/context/AuthContext";
 import { processAvatarImage } from "@/lib/avatar-upload";
-import { DEFAULT_LEAD_CREDENTIALS } from "@/services/portalService";
-import { ArrowRight, Camera, KeyRound, ShieldCheck, Sparkles, Upload } from "lucide-react";
+import { ArrowRight, Camera, KeyRound, ShieldCheck, Upload } from "lucide-react";
 
-const BRANCH_SEMESTER_OPTIONS = [
-  "CSE • 5th Sem",
-  "CSE • 3rd Sem",
-  "CSE • 7th Sem",
-  "AI & ML • 5th Sem",
-  "AI & ML • 3rd Sem",
-  "ECE • 5th Sem",
-  "ECE • 3rd Sem",
-  "Mechanical • 5th Sem",
-  "Civil • 5th Sem",
-  "CSE • 1st Sem",
+const BRANCH_OPTIONS = [
+  "Computer Science & Engineering (CSE)",
+  "Artificial Intelligence & Machine Learning (AI & ML)",
+  "Electronics & Communication Engineering (ECE)",
+  "Mechanical Engineering",
+  "Civil Engineering",
 ];
 
 interface AuthFormProps {
@@ -36,7 +30,7 @@ export function AuthForm({ mode, onModeChange, onSuccess }: AuthFormProps) {
   // Sign Up fields
   const [fullName, setFullName] = useState("");
   const [usn, setUsn] = useState("");
-  const [branchSemester, setBranchSemester] = useState(BRANCH_SEMESTER_OPTIONS[0]);
+  const [branchSemester, setBranchSemester] = useState(BRANCH_OPTIONS[0]);
   const [wantsLeadRole, setWantsLeadRole] = useState(false);
   const [leadPasscode, setLeadPasscode] = useState("");
 
@@ -48,16 +42,6 @@ export function AuthForm({ mode, onModeChange, onSuccess }: AuthFormProps) {
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [credentialsGenerated, setCredentialsGenerated] = useState(false);
-
-  const handleGenerateLeadCredentials = () => {
-    setEmail(DEFAULT_LEAD_CREDENTIALS.email);
-    setPassword(DEFAULT_LEAD_CREDENTIALS.password);
-    onModeChange("login");
-    setCredentialsGenerated(true);
-    setError(null);
-    setTimeout(() => setCredentialsGenerated(false), 3000);
-  };
 
   useEffect(() => {
     return () => {
@@ -130,40 +114,6 @@ export function AuthForm({ mode, onModeChange, onSuccess }: AuthFormProps) {
 
   return (
     <div className="w-full">
-      {/* Lead Access Card */}
-      <div className="mb-6 p-4 rounded-xl bg-[#162323] border border-[#BC806A]/45">
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <span className="text-xs font-mono font-semibold uppercase tracking-[0.16em] text-[#BC806A] inline-flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4" />
-            Club Lead Quick Access
-          </span>
-          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-[#BC806A]/20 text-[#EFE7E4] border border-[#BC806A]/30">
-            Full Control
-          </span>
-        </div>
-        <p className="text-xs text-[#B59289] leading-relaxed mb-3">
-          Sign in with Lead credentials to manage broadcasts, events, and all portal operations.
-        </p>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-lg bg-[#1D2C2C] border border-[#484A43]/60">
-          <div className="text-xs font-mono space-y-0.5 min-w-0">
-            <div className="text-[#EFE7E4] truncate">
-              <span className="text-[#806B64]">Email:</span> lead@xor.club
-            </div>
-            <div className="text-[#EFE7E4] truncate">
-              <span className="text-[#806B64]">Password:</span> xorlead2026
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleGenerateLeadCredentials}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-md bg-[#BC806A] hover:bg-[#C9917D] text-[#162323] text-xs font-medium cursor-pointer transition-colors whitespace-nowrap shrink-0"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{credentialsGenerated ? "Credentials Loaded!" : "Generate & Fill Lead Login"}</span>
-          </button>
-        </div>
-      </div>
-
       {/* Mode Switcher */}
       <div
         role="tablist"
@@ -318,7 +268,7 @@ export function AuthForm({ mode, onModeChange, onSuccess }: AuthFormProps) {
                   htmlFor="auth-branch"
                   className="block text-xs font-medium text-[#B59289] mb-1.5"
                 >
-                  Branch &amp; Semester
+                  Branch
                 </label>
                 <select
                   id="auth-branch"
@@ -326,7 +276,7 @@ export function AuthForm({ mode, onModeChange, onSuccess }: AuthFormProps) {
                   onChange={(e) => setBranchSemester(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-lg bg-[#162323] border border-[#484A43]/70 text-sm text-[#EFE7E4] focus:outline-none focus:border-[#BC806A] transition-colors"
                 >
-                  {BRANCH_SEMESTER_OPTIONS.map((option) => (
+                  {BRANCH_OPTIONS.map((option) => (
                     <option key={option} value={option} className="bg-[#1D2C2C] text-[#EFE7E4]">
                       {option}
                     </option>
