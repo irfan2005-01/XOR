@@ -1,0 +1,126 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-heading);
+
+  --color-canvas: #162323;
+  --color-surface: #1D2C2C;
+  --color-flint: #484A43;
+  --color-taupe: #806B64;
+  --color-sand: #B59289;
+  --color-brick: #BC806A;
+  --color-ivory-sand: #EFE7E4;
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+}
+
+:root {
+  --background: #162323;
+  --foreground: #EFE7E4;
+  --card: #1D2C2C;
+  --card-foreground: #EFE7E4;
+  --popover: #1D2C2C;
+  --popover-foreground: #EFE7E4;
+  --primary: #BC806A;
+  --primary-foreground: #162323;
+  --secondary: #1D2C2C;
+  --secondary-foreground: #EFE7E4;
+  --muted: #1D2C2C;
+  --muted-foreground: #B59289;
+  --accent: #BC806A;
+  --accent-foreground: #162323;
+  --destructive: #BC806A;
+  --border: rgba(72, 74, 67, 0.55);
+  --input: rgba(72, 74, 67, 0.55);
+  --ring: #BC806A;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #162323;
+  --foreground: #EFE7E4;
+  --card: #1D2C2C;
+  --card-foreground: #EFE7E4;
+  --popover: #1D2C2C;
+  --popover-foreground: #EFE7E4;
+  --primary: #BC806A;
+  --primary-foreground: #162323;
+  --secondary: #1D2C2C;
+  --secondary-foreground: #EFE7E4;
+  --muted: #1D2C2C;
+  --muted-foreground: #B59289;
+  --accent: #BC806A;
+  --accent-foreground: #162323;
+  --destructive: #BC806A;
+  --border: rgba(72, 74, 67, 0.55);
+  --input: rgba(72, 74, 67, 0.55);
+  --ring: #BC806A;
+}
+
+html {
+  background-color: #162323;
+  color: #EFE7E4;
+  color-scheme: dark;
+}
+
+body {
+  background-color: #162323;
+  color: #EFE7E4;
+  font-family: var(--font-sans), sans-serif;
+  overflow-x: clip;
+  letter-spacing: -0.01em;
+}
+
+/* Discreet Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #162323;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(72, 74, 67, 0.65);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(188, 128, 106, 0.65);
+}
+
+/* Hairline border rule */
+.hairline-border {
+  border: 1px solid rgba(72, 74, 67, 0.55);
+}
+
+/* Editorial font classes */
+.font-heading {
+  font-family: var(--font-heading), sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.font-mono {
+  font-family: var(--font-mono), monospace;
+}
