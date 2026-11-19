@@ -30,8 +30,10 @@ export const DEFAULT_LEAD_CREDENTIALS = {
   name: "XOR Club Lead",
 };
 
-const DUMMY_ANNOUNCEMENT_AUTHORS = ["tauz ul imam", "syed irfan ahmed"];
-const DUMMY_ANNOUNCEMENT_TITLES = [
+const LEGACY_MOCK_AUTHORS = ["hasan", "syed mohammed hasan"];
+const LEGACY_MOCK_TITLES = [
+  "xor cohort 2026–27 welcome orientation",
+  "welcome orientation",
   "technical workshop: full-stack web & embedded telemetry",
   "weekend campus build sprint: smart utilities",
 ];
@@ -39,8 +41,8 @@ const DUMMY_ANNOUNCEMENT_TITLES = [
 function isDummyAnnouncement(title: string, author: string): boolean {
   const t = (title || "").toLowerCase().trim();
   const a = (author || "").toLowerCase().trim();
-  if (DUMMY_ANNOUNCEMENT_AUTHORS.some((name) => a.includes(name))) return true;
-  if (DUMMY_ANNOUNCEMENT_TITLES.some((item) => t.includes(item))) return true;
+  if (LEGACY_MOCK_AUTHORS.some((name) => a.includes(name))) return true;
+  if (LEGACY_MOCK_TITLES.some((item) => t.includes(item))) return true;
   return false;
 }
 

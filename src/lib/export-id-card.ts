@@ -24,14 +24,51 @@ function drawRoundedRect(
   ctx.closePath();
 }
 
-async function loadAvatarImage(url: string): Promise<HTMLImageElement | null> {
-  return await new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
+interface LoadedAvatar {
+  img: HTMLImageElement;
+  blobUrl: string | null;
+}
+
+async function loadAvatarImage(url: string): Promise<LoadedAvatar | null> {
+  // If the image is already a data URI or local blob, load directly
+  if (url.startsWith("data:") || url.startsWith("blob:")) {
+    return await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ img, blobUrl: null });
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  // Load through Next.js avatar proxy to eliminate cross-origin canvas tainting
+  try {
+    const proxyEndpoint = `/api/avatar-proxy?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyEndpoint);
+    if (!res.ok) {
+      throw new Error(`Proxy error ${res.status}`);
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    return await new Promise<LoadedAvatar | null>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ img, blobUrl });
+      img.onerror = () => {
+        URL.revokeObjectURL(blobUrl);
+        resolve(null);
+      };
+      img.src = blobUrl;
+    });
+  } catch {
+    // Fallback direct load attempt
+    return await new Promise<LoadedAvatar | null>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve({ img, blobUrl: null });
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
 }
 
 /**
@@ -138,37 +175,44 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
   ctx.fill();
   ctx.clip();
 
-  const avatarImg = member.avatarUrl
+  const avatarResult = member.avatarUrl
     ? await loadAvatarImage(member.avatarUrl)
     : null;
 
-  if (avatarImg && avatarImg.naturalWidth > 0 && avatarImg.naturalHeight > 0) {
-    const srcSide = Math.min(avatarImg.naturalWidth, avatarImg.naturalHeight);
-    const sx = (avatarImg.naturalWidth - srcSide) / 2;
-    const sy = (avatarImg.naturalHeight - srcSide) / 2;
-    ctx.drawImage(
-      avatarImg,
-      sx,
-      sy,
-      srcSide,
-      srcSide,
-      avatarX,
-      avatarY,
-      avatarSize,
-      avatarSize
-    );
-  } else {
-    ctx.fillStyle = "#BC806A";
-    ctx.font = "700 62px 'JetBrains Mono', monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(
-      getMemberInitials(member.fullName),
-      avatarX + avatarSize / 2,
-      avatarY + avatarSize / 2 + 2
-    );
-    ctx.textAlign = "left";
-    ctx.textBaseline = "alphabetic";
+  try {
+    const avatarImg = avatarResult?.img;
+    if (avatarImg && avatarImg.naturalWidth > 0 && avatarImg.naturalHeight > 0) {
+      const srcSide = Math.min(avatarImg.naturalWidth, avatarImg.naturalHeight);
+      const sx = (avatarImg.naturalWidth - srcSide) / 2;
+      const sy = (avatarImg.naturalHeight - srcSide) / 2;
+      ctx.drawImage(
+        avatarImg,
+        sx,
+        sy,
+        srcSide,
+        srcSide,
+        avatarX,
+        avatarY,
+        avatarSize,
+        avatarSize
+      );
+    } else {
+      ctx.fillStyle = "#BC806A";
+      ctx.font = "700 62px 'JetBrains Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        getMemberInitials(member.fullName),
+        avatarX + avatarSize / 2,
+        avatarY + avatarSize / 2 + 2
+      );
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+    }
+  } finally {
+    if (avatarResult?.blobUrl) {
+      URL.revokeObjectURL(avatarResult.blobUrl);
+    }
   }
   ctx.restore();
 

@@ -51,7 +51,7 @@ export default function HomePage() {
 
       {/* Homepage Flow: Split Hero -> Campus HQ Showcase -> How It Works -> Club Pillars & CTA */}
       <main
-        className={`relative flex-1 flex flex-col transition-[transform,opacity] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`relative flex-1 flex flex-col overflow-x-hidden transition-[transform,opacity] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           isPreloaderActive ? "scale-[0.97] opacity-90" : "scale-100 opacity-100"
         }`}
       >

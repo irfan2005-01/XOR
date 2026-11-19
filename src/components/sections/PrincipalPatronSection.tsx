@@ -10,7 +10,7 @@ export function PrincipalPatronSection() {
     <section
       id="patron"
       aria-labelledby="patron-heading"
-      className="relative overflow-hidden border-y border-[#484A43]/40 bg-[#162323] py-20 sm:py-28"
+      className="relative overflow-hidden border-y border-[#484A43]/40 bg-[#162323] py-12 sm:py-20 lg:py-24"
     >
       {/* Subtle Petroleum Ambient Glow */}
       <div
@@ -27,7 +27,7 @@ export function PrincipalPatronSection() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
           {/* Left: Principal & Patron Portrait Card */}
           <div className="lg:col-span-5 flex justify-center order-2 lg:order-1">
-            <BlurFade delay={0.1} className="w-full max-w-sm">
+            <BlurFade delay={0.1} className="w-full max-w-[220px] sm:max-w-sm mx-auto lg:mx-0">
               <div className="relative rounded-2xl overflow-hidden border-[1.5px] border-[#BC806A]/70 bg-[#162323] p-3 shadow-xl">
                 <div className="relative aspect-[4/5] w-full rounded-xl overflow-hidden bg-[#1D2C2C]">
                   <Image

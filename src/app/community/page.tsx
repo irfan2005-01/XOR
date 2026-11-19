@@ -452,7 +452,7 @@ export default function CommunityPage() {
           </div>
 
           {/* Chronological Channel Message Stream */}
-          <main className="flex-1 max-w-3xl w-full mx-auto px-6 py-8 flex flex-col justify-end">
+          <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col justify-end">
             {feedError && (
               <div
                 role="alert"
@@ -483,7 +483,7 @@ export default function CommunityPage() {
                   <Radio className="w-5 h-5 text-[#BC806A]" strokeWidth={1.6} />
                 </div>
                 <p className="text-sm text-[#B59289] leading-relaxed">
-                  No broadcasts yet. Club leads will post upcoming event pitches and announcements here.
+                  No official broadcasts yet — Club Leads will post upcoming builds and sessions here.
                 </p>
               </div>
             ) : filteredBroadcasts.length === 0 ? (
@@ -505,7 +505,7 @@ export default function CommunityPage() {
                   return (
                     <div key={item.id} className="flex flex-col items-start">
                       {/* Left-aligned Broadcast Bubble */}
-                      <article className="w-full max-w-2xl rounded-2xl rounded-tl-sm bg-[#1D2C2C] border border-[#484A43]/60 px-5 py-4 sm:px-6 sm:py-5">
+                      <article className="w-full max-w-2xl rounded-2xl rounded-tl-sm bg-[#1D2C2C] border border-[#484A43]/60 px-4 py-3.5 sm:px-6 sm:py-5">
                         {/* Sender & Type Metadata Row */}
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
@@ -517,7 +517,7 @@ export default function CommunityPage() {
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.14em]">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-mono uppercase tracking-[0.14em]">
                             <span className="text-[#BC806A]">
                               {isEvent ? "EVENT PITCH" : "ANNOUNCEMENT"}
                             </span>
@@ -608,7 +608,7 @@ export default function CommunityPage() {
                           onClick={() => void handleToggleInterested(item.id)}
                           disabled={isUpdating}
                           aria-pressed={isInterested}
-                          className={`mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-mono transition-colors cursor-pointer tabular-nums disabled:opacity-70 ${
+                          className={`mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-mono transition-colors cursor-pointer tabular-nums disabled:opacity-70 min-h-[36px] max-w-full flex-wrap ${
                             isInterested
                               ? "bg-[#BC806A] text-[#162323] font-semibold hover:bg-[#C9917D]"
                               : "bg-[#1D2C2C] text-[#EFE7E4] border border-[#484A43]/70 hover:border-[#BC806A]"

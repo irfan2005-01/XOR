@@ -16,12 +16,12 @@ export interface CoreLeadMember {
 }
 
 export const cseHod: DepartmentLead = {
-  name: "Prof. [CSE HOD Name]",
+  name: "Dr. Vivek Jalade",
   designation: "Head of Department • Computer Science & Engineering",
   institution: "Lingaraj Appa Engineering College, Bidar",
   note: "Faculty advisor guiding student-led technical initiatives, peer workshops, and engineering innovation across the CSE department.",
   image: "/hod-cse.jpg",
-  initials: "HD",
+  initials: "VJ",
 };
 
 export const coreLeads: CoreLeadMember[] = [

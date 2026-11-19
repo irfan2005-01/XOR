@@ -7,7 +7,7 @@ const STEPS = [
     number: "01",
     title: "Create Account & Upload Photo",
     description:
-      "Sign up with your full name, LAEC USN, branch & semester, and your student portrait.",
+      "Sign up with your full name, LAEC USN, engineering branch, and your student portrait.",
   },
   {
     number: "02",
@@ -28,7 +28,7 @@ export function HowItWorksStrip() {
     <section
       id="how-it-works"
       aria-labelledby="how-it-works-heading"
-      className="relative overflow-hidden border-t border-[#484A43]/40 bg-[#162323] py-20 sm:py-24"
+      className="relative overflow-hidden border-t border-[#484A43]/40 bg-[#162323] py-12 sm:py-20 lg:py-24"
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 mb-10 pb-4 border-b border-[#484A43]/40">

@@ -227,7 +227,7 @@ export function XorParticleGraphic() {
   return (
     <div
       ref={containerRef}
-      className="relative w-full max-w-[420px] aspect-square mx-auto flex items-center justify-center select-none"
+      className="relative w-full h-[240px] sm:h-[340px] lg:h-[420px] max-w-[420px] aspect-square mx-auto flex items-center justify-center select-none"
     >
       <canvas
         ref={canvasRef}

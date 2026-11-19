@@ -34,7 +34,7 @@ export function HeroSection() {
             </BlurFade>
 
             <BlurFade delay={0.1}>
-              <h1 className="text-4xl sm:text-5xl lg:text-[3.5rem] font-medium tracking-[-0.03em] leading-[1.08] text-[#EFE7E4] mt-4 text-balance">
+              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-medium tracking-[-0.03em] leading-[1.08] text-[#EFE7E4] mt-4 text-balance">
                 {BRAND_CONFIG.tagline}
               </h1>
             </BlurFade>
@@ -45,13 +45,13 @@ export function HeroSection() {
               </p>
             </BlurFade>
 
-            <BlurFade delay={0.2}>
-              <div className="mt-8 flex flex-wrap items-center gap-6">
+            <BlurFade delay={0.2} className="w-full">
+              <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 w-full">
                 {isHydrated && user ? (
                   <>
                     <Link
                       href="/dashboard"
-                      className="bg-[#BC806A] text-[#162323] hover:bg-[#C9917D] font-semibold px-6 py-3 rounded-lg text-sm tracking-wide transition-colors inline-flex items-center gap-2 group whitespace-nowrap shrink-0"
+                      className="w-full sm:w-auto bg-[#BC806A] text-[#162323] hover:bg-[#C9917D] font-semibold px-6 py-3.5 rounded-lg text-sm tracking-wide transition-colors inline-flex items-center justify-center gap-2 group whitespace-nowrap min-h-[44px]"
                     >
                       <span>View My ID Card</span>
                       <ArrowRight
@@ -62,7 +62,7 @@ export function HeroSection() {
 
                     <Link
                       href="/community"
-                      className="text-sm text-[#EFE7E4] hover:text-[#BC806A] inline-flex items-center gap-2 group transition-colors py-2 whitespace-nowrap shrink-0"
+                      className="w-full sm:w-auto text-sm text-[#EFE7E4] hover:text-[#BC806A] inline-flex items-center justify-center gap-2 group transition-colors py-2 whitespace-nowrap min-h-[44px]"
                     >
                       <span>Enter Community</span>
                       <ArrowRight
@@ -76,7 +76,7 @@ export function HeroSection() {
                     <button
                       type="button"
                       onClick={() => openAuthModal("login", "/dashboard")}
-                      className="bg-[#BC806A] text-[#162323] hover:bg-[#C9917D] font-semibold px-6 py-3 rounded-lg text-sm tracking-wide transition-colors cursor-pointer inline-flex items-center gap-2 group whitespace-nowrap shrink-0"
+                      className="w-full sm:w-auto bg-[#BC806A] text-[#162323] hover:bg-[#C9917D] font-semibold px-6 py-3.5 rounded-lg text-sm tracking-wide transition-colors cursor-pointer inline-flex items-center justify-center gap-2 group whitespace-nowrap min-h-[44px]"
                     >
                       <span>Club Lead &amp; Member Sign In</span>
                       <ArrowRight
@@ -88,7 +88,7 @@ export function HeroSection() {
                     <button
                       type="button"
                       onClick={() => openAuthModal("login", "/dashboard")}
-                      className="text-sm text-[#B59289] hover:text-[#EFE7E4] inline-flex items-center gap-1.5 transition-colors py-2 cursor-pointer whitespace-nowrap shrink-0"
+                      className="w-full sm:w-auto text-sm text-[#B59289] hover:text-[#EFE7E4] inline-flex items-center justify-center gap-1.5 transition-colors py-2 cursor-pointer whitespace-nowrap min-h-[44px]"
                     >
                       <span>Already registered? Log in</span>
                     </button>
@@ -122,10 +122,10 @@ export function HeroSection() {
           </div>
 
           {/* Right Column: Interactive Particle Letter "X" */}
-          <div className="lg:col-span-6 flex items-center justify-center order-2">
+          <div className="lg:col-span-6 flex items-center justify-center order-2 w-full">
             <BlurFade
               delay={0.1}
-              className="w-full flex items-center justify-center"
+              className="w-full h-[240px] sm:h-[340px] lg:h-[420px] flex items-center justify-center"
             >
               <XorParticleGraphic />
             </BlurFade>

@@ -94,17 +94,17 @@ export function VirtualIdCard({
   };
 
   return (
-    <div className="w-full max-w-[540px] mx-auto">
+    <div className="w-full max-w-[340px] sm:max-w-[380px] mx-auto">
       {/* Interactive Flip Bar */}
-      <div className="flex items-center justify-between gap-4 mb-3">
-        <span className="text-[11px] font-mono uppercase tracking-[0.16em] text-[#806B64]">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#806B64] truncate">
           {isFlipped ? "Back · QR Verification" : "Front · Member Pass"}
         </span>
         <button
           type="button"
           onClick={toggleFlip}
           aria-pressed={isFlipped}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1D2C2C] border border-[#484A43]/70 hover:border-[#BC806A] text-xs font-mono text-[#EFE7E4] transition-colors cursor-pointer whitespace-nowrap"
+          className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#1D2C2C] border border-[#484A43]/70 hover:border-[#BC806A] text-xs font-mono text-[#EFE7E4] transition-colors cursor-pointer whitespace-nowrap shrink-0"
         >
           <RotateCw
             className={`w-3.5 h-3.5 text-[#BC806A] transition-transform duration-300 ${
@@ -146,7 +146,7 @@ export function VirtualIdCard({
           >
             {/* ==================== FRONT FACE ==================== */}
             <div
-              className="relative overflow-hidden rounded-2xl bg-[#1D2C2C] border border-[#BC806A]/65 p-4 sm:p-6 md:p-8 shadow-2xl max-w-full"
+              className="relative overflow-hidden rounded-2xl bg-[#1D2C2C] border border-[#BC806A]/65 p-4 sm:p-6 shadow-2xl max-w-full"
               style={{
                 backfaceVisibility: "hidden",
                 WebkitBackfaceVisibility: "hidden",
@@ -165,7 +165,7 @@ export function VirtualIdCard({
               <svg
                 aria-hidden="true"
                 viewBox="0 0 220 220"
-                className="pointer-events-none absolute -right-4 top-1/2 -translate-y-1/2 w-56 h-56"
+                className="pointer-events-none absolute -right-4 top-1/2 -translate-y-1/2 w-44 sm:w-56 h-44 sm:h-56"
               >
                 <rect
                   x="24"
@@ -200,18 +200,18 @@ export function VirtualIdCard({
               </svg>
 
               {/* Header: XOR • LAEC BIDAR + Role Pill */}
-              <div className="relative z-10 flex items-center justify-between gap-3 pb-5 border-b border-[#484A43]/60">
-                <div className="text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase text-[#EFE7E4] whitespace-nowrap">
+              <div className="relative z-10 flex items-center justify-between gap-2.5 pb-4 border-b border-[#484A43]/60">
+                <div className="text-[11px] sm:text-xs font-semibold tracking-[0.18em] uppercase text-[#EFE7E4] whitespace-nowrap">
                   XOR • LAEC BIDAR
                 </div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#BC806A]/15 border border-[#BC806A]/55 text-[10px] sm:text-[11px] font-mono tracking-[0.14em] uppercase text-[#BC806A] whitespace-nowrap shrink-0">
-                  <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#BC806A]/15 border border-[#BC806A]/55 text-[10px] sm:text-[11px] font-mono tracking-[0.14em] uppercase text-[#BC806A] whitespace-nowrap shrink-0">
+                  <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={1.75} />
                   <span>{member.role}</span>
                 </div>
               </div>
 
               {/* Member Portrait + Core Identity */}
-              <div className="relative z-10 py-6 flex items-center gap-4 sm:gap-6">
+              <div className="relative z-10 py-5 flex items-center gap-3.5 sm:gap-5">
                 {/* Framed rounded-square portrait (1.5px #BC806A border) */}
                 <div
                   onClick={
@@ -227,7 +227,7 @@ export function VirtualIdCard({
                       ? "Click to upload profile photo"
                       : undefined
                   }
-                  className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-[#162323] border-[1.5px] border-[#BC806A] overflow-hidden flex items-center justify-center shrink-0 shadow-inner ${
+                  className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-[#162323] border-[1.5px] border-[#BC806A] overflow-hidden flex items-center justify-center shrink-0 shadow-inner ${
                     !showPhoto && onEmptyPortraitClick
                       ? "hover:border-[#EFE7E4] transition-colors cursor-pointer group/portrait"
                       : ""
@@ -247,13 +247,13 @@ export function VirtualIdCard({
                     <>
                       <span
                         aria-label={`${member.fullName} monogram`}
-                        className="text-xl sm:text-2xl font-mono font-bold tracking-wider text-[#BC806A]"
+                        className="text-lg sm:text-xl font-mono font-bold tracking-wider text-[#BC806A]"
                       >
                         {initials}
                       </span>
                       {onEmptyPortraitClick && (
-                        <span className="absolute bottom-1 right-1 w-5 h-5 rounded-md bg-[#1D2C2C]/90 border border-[#BC806A]/60 flex items-center justify-center text-[#BC806A] group-hover/portrait:text-[#EFE7E4]">
-                          <Camera className="w-3 h-3" strokeWidth={1.8} />
+                        <span className="absolute bottom-1 right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-[#1D2C2C]/90 border border-[#BC806A]/60 flex items-center justify-center text-[#BC806A] group-hover/portrait:text-[#EFE7E4]">
+                          <Camera className="w-2.5 h-2.5 sm:w-3 sm:h-3" strokeWidth={1.8} />
                         </span>
                       )}
                     </>
@@ -261,17 +261,17 @@ export function VirtualIdCard({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-mono tracking-[0.16em] uppercase text-[#806B64]">
+                  <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#806B64]">
                     Student Member
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#EFE7E4] mt-0.5 truncate">
+                  <h2 className="text-base sm:text-xl font-semibold tracking-tight text-[#EFE7E4] mt-0.5 truncate">
                     {member.fullName}
                   </h2>
                   <p className="text-xs sm:text-sm text-[#B59289] mt-0.5 truncate">
                     {member.branchSemester}
                   </p>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                     <div>
                       <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#806B64] mr-1.5">
                         USN
@@ -285,25 +285,25 @@ export function VirtualIdCard({
               </div>
 
               {/* Footer: Monospace XOR-26-XXXX Badge + Tap Hint */}
-              <div className="relative z-10 pt-5 border-t border-[#484A43]/60 flex items-end justify-between gap-4">
-                <div>
-                  <div className="text-[10px] font-mono tracking-[0.16em] uppercase text-[#806B64]">
+              <div className="relative z-10 pt-4 border-t border-[#484A43]/60 flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#806B64]">
                     Unique Member ID
                   </div>
                   <div
                     data-testid="virtual-id-code"
-                    className="inline-block mt-1 px-2.5 py-1 rounded-md bg-[#162323] border border-[#BC806A]/55 text-lg sm:text-xl font-mono font-bold tracking-[0.12em] text-[#BC806A] tabular-nums"
+                    className="inline-block mt-1 px-2.5 py-1 rounded-md bg-[#162323] border border-[#BC806A]/55 text-base sm:text-lg font-mono font-bold tracking-[0.1em] text-[#BC806A] tabular-nums whitespace-nowrap"
                   >
                     {member.id}
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <div className="text-[10px] font-mono tracking-[0.16em] uppercase text-[#806B64]">
-                    Tap card for QR
+                <div className="text-right shrink-0">
+                  <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#806B64]">
+                    Tap for QR
                   </div>
-                  <div className="text-[11px] font-mono text-[#B59289] mt-0.5 tabular-nums">
-                    ISSUED {issueDate}
+                  <div className="text-[10px] sm:text-[11px] font-mono text-[#B59289] mt-0.5 tabular-nums">
+                    {issueDate}
                   </div>
                 </div>
               </div>
@@ -311,7 +311,7 @@ export function VirtualIdCard({
 
             {/* ==================== BACK FACE ==================== */}
             <div
-              className="absolute inset-0 overflow-hidden rounded-2xl bg-[#1D2C2C] border border-[#BC806A]/65 p-4 sm:p-6 md:p-8 shadow-2xl flex flex-col justify-between max-w-full"
+              className="absolute inset-0 overflow-hidden rounded-2xl bg-[#1D2C2C] border border-[#BC806A]/65 p-4 sm:p-6 shadow-2xl flex flex-col justify-between max-w-full"
               style={{
                 backfaceVisibility: "hidden",
                 WebkitBackfaceVisibility: "hidden",
@@ -328,8 +328,8 @@ export function VirtualIdCard({
               />
 
               {/* Back Header */}
-              <div className="relative z-10 flex items-center justify-between gap-3 pb-3 sm:pb-4 border-b border-[#484A43]/60">
-                <div className="text-[11px] sm:text-xs font-mono tracking-[0.18em] uppercase text-[#BC806A] font-semibold">
+              <div className="relative z-10 flex items-center justify-between gap-2.5 pb-3 border-b border-[#484A43]/60">
+                <div className="text-[10px] sm:text-[11px] font-mono tracking-[0.16em] uppercase text-[#BC806A] font-semibold">
                   PASS VERIFICATION
                 </div>
                 <div className="text-[10px] sm:text-[11px] font-mono text-[#B59289] tabular-nums">
@@ -338,14 +338,14 @@ export function VirtualIdCard({
               </div>
 
               {/* Center: Scannable Vector QR Code + Verification Details */}
-              <div className="relative z-10 my-auto py-2 sm:py-3 flex items-center gap-3 sm:gap-6">
+              <div className="relative z-10 my-auto py-2 flex items-center gap-3 sm:gap-5">
                 {/* Crisp Vector QR Code */}
-                <div className="p-2 sm:p-2.5 rounded-xl bg-[#162323] border border-[#BC806A]/60 shrink-0">
+                <div className="p-1.5 sm:p-2 rounded-xl bg-[#162323] border border-[#BC806A]/60 shrink-0">
                   <svg
                     role="img"
                     aria-label={`Scannable QR code for ${member.id}`}
                     viewBox={`-2 -2 ${qrMatrix.size + 4} ${qrMatrix.size + 4}`}
-                    className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28"
+                    className="w-14 h-14 sm:w-16 sm:h-16"
                     shapeRendering="crispEdges"
                   >
                     <rect
@@ -369,24 +369,24 @@ export function VirtualIdCard({
                 </div>
 
                 {/* Metadata + Barcode */}
-                <div className="min-w-0 flex-1 space-y-3">
+                <div className="min-w-0 flex-1 space-y-2">
                   <div>
-                    <div className="text-[10px] font-mono tracking-[0.16em] uppercase text-[#806B64]">
+                    <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#806B64]">
                       ISSUED
                     </div>
-                    <div className="text-xs sm:text-sm font-mono font-medium text-[#EFE7E4] mt-0.5 tabular-nums">
+                    <div className="text-xs font-mono font-medium text-[#EFE7E4] mt-0.5 tabular-nums">
                       {issueDate}
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-[10px] font-mono tracking-[0.16em] uppercase text-[#806B64] mb-1">
+                    <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#806B64] mb-0.5">
                       Verification Barcode
                     </div>
                     <svg
                       aria-label={`Verification barcode for ${member.id}`}
                       viewBox={`0 0 ${barcodeGeometry.totalWidth} 32`}
-                      className="h-7 w-full max-w-[180px]"
+                      className="h-6 w-full max-w-[150px]"
                     >
                       {barcodeGeometry.rects.map((rect, idx) => (
                         <rect
@@ -405,12 +405,12 @@ export function VirtualIdCard({
               </div>
 
               {/* College Seal Footer */}
-              <div className="relative z-10 pt-4 border-t border-[#484A43]/60 flex items-center justify-between gap-3">
-                <p className="text-[10px] sm:text-[11px] font-mono tracking-[0.14em] uppercase text-[#B59289] truncate">
-                  LINGARAJ APPA ENGINEERING COLLEGE, BIDAR
+              <div className="relative z-10 pt-3 border-t border-[#484A43]/60 flex items-center justify-between gap-2 text-[10px]">
+                <p className="font-mono tracking-[0.12em] uppercase text-[#B59289] truncate">
+                  LAEC BIDAR &bull; VERIFIED PASS
                 </p>
-                <span className="text-[10px] font-mono text-[#806B64] whitespace-nowrap shrink-0">
-                  XOR CLUB
+                <span className="font-mono text-[#806B64] whitespace-nowrap shrink-0">
+                  XOR
                 </span>
               </div>
             </div>

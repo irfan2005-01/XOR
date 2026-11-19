@@ -117,7 +117,7 @@ export function CampusHqSection() {
       ref={sectionRef}
       id="campus"
       aria-labelledby="campus-hq-heading"
-      className="relative overflow-hidden border-y border-[#484A43]/40 bg-[#162323] py-20 sm:py-28"
+      className="relative overflow-hidden border-y border-[#484A43]/40 bg-[#162323] py-12 sm:py-20 lg:py-24"
     >
       <span id="campus-hq" className="sr-only" aria-hidden="true" />
 

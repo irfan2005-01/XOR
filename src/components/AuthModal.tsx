@@ -48,7 +48,7 @@ export function AuthModal() {
         onClick={closeAuthModal}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden rounded-xl bg-[#1D2C2C] border border-[#484A43]/70 p-4 sm:p-6 md:p-8 shadow-2xl">
+      <div className="relative z-10 w-full max-w-md max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-xl bg-[#1D2C2C] border border-[#484A43]/70 p-4 sm:p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div>
             <p className="text-[11px] font-mono tracking-[0.2em] uppercase text-[#BC806A]">

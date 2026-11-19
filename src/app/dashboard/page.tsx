@@ -95,9 +95,9 @@ export default function DashboardPage() {
     <div className="min-h-screen flex flex-col bg-[#162323] text-[#EFE7E4]">
       <Header />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-6 py-12 sm:py-16">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16">
         {!isHydrated ? (
-          <div className="max-w-[540px] mx-auto space-y-6">
+          <div className="max-w-[340px] sm:max-w-[380px] mx-auto space-y-6">
             <div className="h-8 w-56 rounded-md bg-[#1D2C2C] animate-pulse" />
             <div className="h-[320px] w-full rounded-2xl bg-[#1D2C2C] border border-[#484A43]/45 animate-pulse" />
           </div>
@@ -115,7 +115,7 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="rounded-xl bg-[#1D2C2C] border border-[#484A43]/60 p-6 sm:p-8">
+            <div className="rounded-xl bg-[#1D2C2C] border border-[#484A43]/60 p-5 sm:p-8">
               <AuthForm mode={authMode} onModeChange={setAuthMode} />
             </div>
           </div>
@@ -130,12 +130,12 @@ export default function DashboardPage() {
               className="sr-only"
             />
 
-            <div className="w-full max-w-[540px] mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+            <div className="w-full max-w-[340px] sm:max-w-[380px] mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-2.5">
               <div>
                 <p className="text-xs font-mono tracking-[0.2em] uppercase text-[#BC806A]">
                   My ID Card · LAEC Bidar
                 </p>
-                <h1 className="text-2xl sm:text-3xl font-medium tracking-tight text-[#EFE7E4] mt-1.5">
+                <h1 className="text-2xl sm:text-3xl font-medium tracking-tight text-[#EFE7E4] mt-1">
                   Welcome, {user.fullName.split(" ")[0]}
                 </h1>
               </div>
@@ -150,33 +150,33 @@ export default function DashboardPage() {
             />
 
             {(photoError || downloadError) && (
-              <div role="alert" className="mt-4 px-3.5 py-2 rounded-lg bg-[#BC806A]/15 border border-[#BC806A]/50 text-xs text-[#EFE7E4]">
+              <div role="alert" className="mt-4 px-3.5 py-2 rounded-lg bg-[#BC806A]/15 border border-[#BC806A]/50 text-xs text-[#EFE7E4] max-w-[340px] sm:max-w-[380px] w-full text-center">
                 {photoError ?? downloadError}
               </div>
             )}
 
             {photoUpdated && (
-              <div role="status" className="mt-4 px-3.5 py-2 rounded-lg bg-[#BC806A]/20 border border-[#BC806A]/60 text-xs text-[#EFE7E4] flex items-center gap-2">
+              <div role="status" className="mt-4 px-3.5 py-2 rounded-lg bg-[#BC806A]/20 border border-[#BC806A]/60 text-xs text-[#EFE7E4] flex items-center justify-center gap-2 max-w-[340px] sm:max-w-[380px] w-full">
                 <Check className="w-3.5 h-3.5 text-[#BC806A]" />
                 <span>Profile photo updated successfully!</span>
               </div>
             )}
 
             {downloaded && (
-              <div role="status" className="mt-4 px-3.5 py-2 rounded-lg bg-[#BC806A]/20 border border-[#BC806A]/60 text-xs text-[#EFE7E4] flex items-center gap-2">
+              <div role="status" className="mt-4 px-3.5 py-2 rounded-lg bg-[#BC806A]/20 border border-[#BC806A]/60 text-xs text-[#EFE7E4] flex items-center justify-center gap-2 max-w-[340px] sm:max-w-[380px] w-full">
                 <Check className="w-3.5 h-3.5 text-[#BC806A]" />
                 <span>XOR member pass exported successfully as 2x PNG!</span>
               </div>
             )}
 
             {/* Card Actions */}
-            <div className="w-full max-w-[540px] mt-8 space-y-3">
+            <div className="w-full max-w-[340px] sm:max-w-[380px] mt-6 sm:mt-8 space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={openPhotoPicker}
                   disabled={uploadingPhoto}
-                  className="bg-[#1D2C2C] hover:bg-[#243737] disabled:opacity-70 text-[#EFE7E4] border border-[#484A43] hover:border-[#BC806A]/70 font-medium py-3 px-4 rounded-lg text-sm transition-colors cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap"
+                  className="min-h-[44px] bg-[#1D2C2C] hover:bg-[#243737] disabled:opacity-70 text-[#EFE7E4] border border-[#484A43] hover:border-[#BC806A]/70 font-medium py-2.5 px-3.5 rounded-lg text-xs sm:text-sm transition-colors cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap"
                 >
                   {photoUpdated ? (
                     <>
@@ -189,7 +189,7 @@ export default function DashboardPage() {
                       <span>
                         {uploadingPhoto
                           ? "Uploading Photo..."
-                          : "Upload / Change Photo"}
+                          : "Change Photo"}
                       </span>
                     </>
                   )}
@@ -199,7 +199,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={handleDownload}
                   disabled={downloading}
-                  className="bg-[#1D2C2C] hover:bg-[#243737] disabled:opacity-70 text-[#EFE7E4] border border-[#484A43] hover:border-[#BC806A]/70 font-medium py-3 px-4 rounded-lg text-sm transition-colors cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap"
+                  className="min-h-[44px] bg-[#1D2C2C] hover:bg-[#243737] disabled:opacity-70 text-[#EFE7E4] border border-[#484A43] hover:border-[#BC806A]/70 font-medium py-2.5 px-3.5 rounded-lg text-xs sm:text-sm transition-colors cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap"
                 >
                   {downloaded ? (
                     <>
@@ -209,7 +209,7 @@ export default function DashboardPage() {
                   ) : (
                     <>
                       <Download className="w-4 h-4 text-[#BC806A]" strokeWidth={1.75} />
-                      <span>{downloading ? "Exporting PNG..." : "Download ID Card"}</span>
+                      <span>{downloading ? "Exporting..." : "Download ID Card"}</span>
                     </>
                   )}
                 </button>
@@ -217,7 +217,7 @@ export default function DashboardPage() {
 
               <Link
                 href="/community"
-                className="w-full bg-[#BC806A] hover:bg-[#C9917D] text-[#162323] font-semibold py-3 px-5 rounded-lg text-sm transition-colors inline-flex items-center justify-center gap-2 group whitespace-nowrap"
+                className="w-full min-h-[44px] bg-[#BC806A] hover:bg-[#C9917D] text-[#162323] font-semibold py-2.5 px-5 rounded-lg text-sm transition-colors inline-flex items-center justify-center gap-2 group whitespace-nowrap"
               >
                 <span>Enter Community</span>
                 <ArrowRight
@@ -229,7 +229,7 @@ export default function DashboardPage() {
 
             {/* Subtle Optional Club Lead Passcode Activation */}
             {user.role === "MEMBER" && (
-              <div className="w-full max-w-[540px] mt-8 pt-6 border-t border-[#484A43]/40">
+              <div className="w-full max-w-[340px] sm:max-w-[380px] mt-8 pt-6 border-t border-[#484A43]/40">
                 {!showLeadUnlock ? (
                   <button
                     type="button"

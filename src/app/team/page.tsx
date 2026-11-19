@@ -52,7 +52,7 @@ export default function TeamPage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-12 items-center py-10 border-y border-[#484A43]/40">
             {/* Left: HOD Portrait */}
             <div className="md:col-span-4 lg:col-span-3 flex justify-center md:justify-start">
-              <div className="w-full max-w-[260px] md:max-w-none relative rounded-2xl overflow-hidden border-[1.5px] border-[#BC806A] bg-[#162323] p-2.5 shadow-xl">
+              <div className="w-full max-w-[220px] md:max-w-none mx-auto md:mx-0 relative rounded-2xl overflow-hidden border-[1.5px] border-[#BC806A] bg-[#162323] p-2.5 shadow-xl">
                 <div className="relative aspect-[4/5] w-full rounded-xl overflow-hidden bg-[#1D2C2C] flex items-center justify-center">
                   {cseHod.image && !imgError ? (
                     <>
