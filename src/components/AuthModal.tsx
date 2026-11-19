@@ -38,7 +38,7 @@ export function AuthModal() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#162323]/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-modal-title"
@@ -48,15 +48,15 @@ export function AuthModal() {
         onClick={closeAuthModal}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-md max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-xl bg-[#1D2C2C] border border-[#484A43]/70 p-4 sm:p-6 shadow-2xl">
+      <div className="relative z-10 w-full max-w-md max-h-[90dvh] overflow-y-auto overflow-x-hidden rounded-xl bg-[#0D0E14]/80 backdrop-blur-md border border-white/15 p-5 sm:p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div>
-            <p className="text-[11px] font-mono tracking-[0.2em] uppercase text-[#BC806A]">
-              XOR · LAEC Bidar
+            <p className="text-[11px] font-mono tracking-[0.2em] uppercase text-[#FB923C] font-medium">
+              XOR &middot; LAEC Bidar
             </p>
             <h2
               id="auth-modal-title"
-              className="text-xl font-medium text-[#EFE7E4] mt-1 tracking-tight"
+              className="font-heading text-xl font-semibold text-white mt-1 tracking-tight"
             >
               {authModalMode === "signup"
                 ? "Create Your Member Pass"
@@ -68,7 +68,7 @@ export function AuthModal() {
             type="button"
             onClick={closeAuthModal}
             aria-label="Close authentication modal"
-            className="p-2 rounded-lg text-[#B59289] hover:text-[#EFE7E4] hover:bg-[#162323] transition-colors cursor-pointer"
+            className="p-2 rounded-lg text-[#A1A1AA] hover:text-white hover:bg-[#050507] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" strokeWidth={1.75} />
           </button>

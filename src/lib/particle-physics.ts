@@ -1,210 +1,671 @@
-export interface Particle {
-  homeX: number;
-  homeY: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  radius: number;
-  colorIndex: 0 | 1 | 2;
-  baseR: number;
-  baseG: number;
-  baseB: number;
-  baseAlpha: number;
-  phase: number;
-  driftSpeed: number;
-  driftAmp: number;
-  heat: number; // 0 = resting state, 1 = energized during hover
-}
+import {
+  PARTICLE_MORPH_LERP_60FPS,
+  SCENE_META,
+  clamp01,
+  clampSceneIndex,
+  getMorphLerpFactor,
+  getMorphScatterImpulse,
+  type SceneStageName,
+} from "@/lib/stage-controller";
 
-export interface PointerState {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  active: boolean;
-}
+export type ParticleColorIndex = 0 | 1 | 2;
 
-export const LOGICAL_SIZE = 420;
-export const CENTER = LOGICAL_SIZE / 2;
-
-// Sharp geometric "X" geometry dimensions in logical canvas units
-export const X_HALF_HEIGHT = 124;
-export const X_SLOPE = 0.88;
-export const X_STROKE_HALF_WIDTH = 24;
-
-// Generous hover interaction radius & slow, fluid zero-gravity physics (in seconds)
-export const INTERACT_RADIUS = 145;
-export const STIFFNESS = 6.2; // s^-2 — unhurried, weightless spring return
-export const DAMPING = 4.2; // s^-1 — silky fluid drag (zeta ~ 0.84, zero harsh bounce)
-export const REPEL_STRENGTH = 2200; // px/s^2 — lush, expressive parting around pointer
-export const SWIRL_STRENGTH = 620; // px/s^2 — graceful orbital curl during hover
-export const WAKE_COUPLING = 0.18; // pointer velocity wake transfer
-export const MAX_SPEED = 190; // px/s — serene speed ceiling so sweeps never snap
-export const PARTICLE_COUNT = 2600;
-
-// Petroleum & Brick Rose palette micro-particles
-export const PARTICLE_PALETTE = [
-  [239, 231, 228], // #EFE7E4 Ivory Sand
-  [181, 146, 137], // #B59289 Sand
-  [188, 128, 106], // #BC806A Brick Rose
+// Cosmic 3-color palette: 65% Pure White, 20% Light Orange (#FB923C), 15% Electric Sky Blue (#38BDF8)
+export const COSMIC_PALETTE_RGB: readonly [
+  readonly [number, number, number],
+  readonly [number, number, number],
+  readonly [number, number, number],
+] = [
+  [255, 255, 255], // 0: Pure White (65%)
+  [251, 146, 60],  // 1: Light Orange #FB923C (20%)
+  [56, 189, 248],  // 2: Electric Sky Blue #38BDF8 (15%)
 ] as const;
 
-export function isPointInGeometricX(
-  x: number,
-  y: number,
-  tolerance: number = 0.01
-): boolean {
-  const dx = x - CENTER;
-  const dy = y - CENTER;
-  if (Math.abs(dy) > X_HALF_HEIGHT + tolerance) {
-    return false;
-  }
-  const distLeg1 = Math.abs(dx - X_SLOPE * dy);
-  const distLeg2 = Math.abs(dx + X_SLOPE * dy);
-  return (
-    distLeg1 <= X_STROKE_HALF_WIDTH + tolerance ||
-    distLeg2 <= X_STROKE_HALF_WIDTH + tolerance
-  );
+export const DESKTOP_PARTICLE_COUNT = 2600;
+export const MOBILE_PARTICLE_COUNT = 1100;
+export const AMBIENT_STAR_COUNT = 280;
+
+export interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
 }
 
-export function createParticles(count: number = PARTICLE_COUNT): Particle[] {
-  const particles: Particle[] = [];
+export interface SpaceParticle {
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  /** 5 distinct 3D point-cloud targets: [rocket, satellite, globe, gyroscope, astronaut] */
+  targets: [Vec3, Vec3, Vec3, Vec3, Vec3];
+  /** Deterministic swirl/scatter direction vector during continuous scroll transitions */
+  scatterDir: Vec3;
+  colorIdx: ParticleColorIndex;
+  radius: number;
+  baseAlpha: number;
+  phase: number;
+  twinkleSpeed: number;
+}
 
-  // Deterministic pseudo-random generator for crisp, balanced geometric distribution
-  let seed = 4219;
-  const rand = () => {
-    seed = (seed * 1664525 + 1013904223) % 4294967296;
-    return seed / 4294967296;
+export interface AmbientStar {
+  nx: number;
+  ny: number;
+  depth: number;
+  radius: number;
+  alpha: number;
+  colorIdx: ParticleColorIndex;
+  driftVx: number;
+  driftVy: number;
+}
+
+export interface SceneAnchorConfig {
+  stage: SceneStageName;
+  anchorX: number;
+  anchorY: number;
+  scale: number;
+}
+
+export interface ProjectedPoint {
+  screenX: number;
+  screenY: number;
+  perspective: number;
+  depthNorm: number;
+}
+
+export function createSeededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function getParticleBudget(viewportWidth: number): number {
+  return viewportWidth < 768 ? MOBILE_PARTICLE_COUNT : DESKTOP_PARTICLE_COUNT;
+}
+
+/**
+ * Deterministic 65% Pure White / 20% Light Orange / 15% Electric Sky Blue assignment.
+ */
+export function pickCosmicColorIndex(randVal: number): ParticleColorIndex {
+  if (randVal < 0.65) return 0;
+  if (randVal < 0.85) return 1;
+  return 2;
+}
+
+/**
+ * Scene 0: Volumetric 3D Rocket tilted diagonally up-right
+ * (curved ogive nose cone, cylindrical hull, circular porthole ring, 4 swept tail fins,
+ * flared engine bell, and luminous thruster exhaust plume).
+ */
+export function sampleRocketPoint(rand: () => number): Vec3 {
+  const part = rand();
+  let lx = 0;
+  let ly = 0;
+  let lz = 0;
+
+  if (part < 0.44) {
+    const u = rand(); // 0 = aft, 1 = nose tip
+    ly = -145 + u * 340;
+    let rad: number;
+    if (u > 0.56) {
+      const t = (u - 0.56) / 0.44;
+      rad = 68 * Math.pow(1 - t * t, 0.58);
+    } else if (u < 0.14) {
+      const t = u / 0.14;
+      rad = 44 + 24 * t;
+    } else {
+      const mid = (u - 0.14) / 0.42;
+      rad = 68 + Math.sin(mid * Math.PI) * 10;
+    }
+    const angle = rand() * Math.PI * 2;
+    const shell = 0.88 + rand() * 0.15;
+    lx = Math.cos(angle) * rad * shell;
+    lz = Math.sin(angle) * rad * shell;
+  } else if (part < 0.58) {
+    // Prominent circular viewport / porthole ring on the rocket body
+    const angle = rand() * Math.PI * 2;
+    const ringR = rand() < 0.65 ? 30 + (rand() - 0.5) * 6 : Math.sqrt(rand()) * 27;
+    lx = Math.cos(angle) * ringR;
+    ly = 24 + Math.sin(angle) * ringR;
+    lz = 72 + (rand() - 0.5) * 8;
+  } else if (part < 0.8) {
+    // 4 sculpted swept tail fins
+    const finIdx = Math.floor(rand() * 4);
+    const finAngle = (finIdx * Math.PI) / 2 + Math.PI / 4;
+    const u = rand();
+    const v = rand();
+    const span = 50 + u * 84;
+    const finY = -75 - u * 85 + (v - 0.5) * (1 - u * 0.55) * 72;
+    const thick = (rand() - 0.5) * 9;
+    lx = Math.cos(finAngle) * span - Math.sin(finAngle) * thick;
+    lz = Math.sin(finAngle) * span + Math.cos(finAngle) * thick;
+    ly = finY;
+  } else if (part < 0.9) {
+    // Flared rocket engine bell
+    const u = rand();
+    ly = -145 - u * 36;
+    const rad = 34 + u * 16;
+    const angle = rand() * Math.PI * 2;
+    lx = Math.cos(angle) * rad;
+    lz = Math.sin(angle) * rad;
+  } else {
+    // Soft luminous thruster exhaust plume
+    const u = rand();
+    const spread = 16 + u * 44;
+    const angle = rand() * Math.PI * 2;
+    const rr = Math.sqrt(rand()) * spread;
+    lx = Math.cos(angle) * rr;
+    lz = Math.sin(angle) * rr;
+    ly = -182 - u * 78;
+  }
+
+  // Invert local Y so nose cone points UP (negative screen Y) and exhaust trails DOWN
+  const sy = -ly;
+
+  // Rotate rocket diagonally in 3D space (~34 deg tilt pointing up-right)
+  const tiltZ = 0.58;
+  const tiltX = 0.22;
+  const cosZ = Math.cos(tiltZ);
+  const sinZ = Math.sin(tiltZ);
+  const rx = lx * cosZ - sy * sinZ;
+  const ry = lx * sinZ + sy * cosZ;
+
+  const cosX = Math.cos(tiltX);
+  const sinX = Math.sin(tiltX);
+  const fy = ry * cosX - lz * sinX;
+  const fz = ry * sinX + lz * cosX;
+
+  return { x: rx, y: fy, z: fz };
+}
+
+/**
+ * Scene 1: 3D Orbiting Satellite (octagonal core bus, twin wide solar array wings
+ * with crisp photovoltaic grid ribs, parabolic dish antenna + feed horn, and orbital ring).
+ */
+export function sampleSatellitePoint(rand: () => number): Vec3 {
+  const part = rand();
+  let x = 0;
+  let y = 0;
+  let z = 0;
+
+  if (part < 0.24) {
+    const face = Math.floor(rand() * 8);
+    const angle = (face / 8) * Math.PI * 2 + (rand() - 0.5) * 0.22;
+    const height = (rand() - 0.5) * 112;
+    const rad = rand() < 0.85 ? 42 + (rand() - 0.5) * 3 : Math.sqrt(rand()) * 40;
+    x = Math.cos(angle) * rad;
+    y = height;
+    z = Math.sin(angle) * rad;
+  } else if (part < 0.72) {
+    const side = rand() < 0.5 ? -1 : 1;
+    const panelStart = 64;
+    const panelLen = 176;
+    const panelHalfH = 44;
+    const gridChoice = rand();
+    let u = rand();
+    let v = rand();
+    if (gridChoice < 0.35) {
+      const edge = Math.floor(rand() * 4);
+      if (edge === 0) v = 0;
+      else if (edge === 1) v = 1;
+      else if (edge === 2) u = 0;
+      else u = 1;
+    } else if (gridChoice < 0.65) {
+      if (rand() < 0.6) {
+        u = Math.floor(rand() * 7) / 6;
+      } else {
+        v = Math.floor(rand() * 4) / 3;
+      }
+    }
+    x = side * (panelStart + u * panelLen);
+    y = (v - 0.5) * 2 * panelHalfH;
+    z = (rand() - 0.5) * 4;
+  } else if (part < 0.87) {
+    if (rand() < 0.16) {
+      x = (rand() - 0.5) * 4;
+      z = (rand() - 0.5) * 4;
+      y = -62 - rand() * 46;
+    } else {
+      const angle = rand() * Math.PI * 2;
+      const r = rand() < 0.35 ? 48 + (rand() - 0.5) * 3 : Math.sqrt(rand()) * 48;
+      x = Math.cos(angle) * r;
+      z = Math.sin(angle) * r;
+      y = -62 - (r * r) / 52;
+    }
+  } else {
+    const theta = rand() * Math.PI * 2;
+    const ringR = 232 + (rand() - 0.5) * 5;
+    x = Math.cos(theta) * ringR;
+    z = Math.sin(theta) * ringR;
+    y = (rand() - 0.5) * 4;
+  }
+
+  const tiltZ = -0.32;
+  const tiltX = 0.28;
+  const rx = x * Math.cos(tiltZ) - y * Math.sin(tiltZ);
+  const ry = x * Math.sin(tiltZ) + y * Math.cos(tiltZ);
+  const fy = ry * Math.cos(tiltX) - z * Math.sin(tiltX);
+  const fz = ry * Math.sin(tiltX) + z * Math.cos(tiltX);
+
+  return { x: rx, y: fy, z: fz };
+}
+
+/**
+ * Scene 2: 3D Rotating Geodesic Globe (dense latitude/longitude rings + Fibonacci sphere surface).
+ */
+export function sampleGlobePoint(
+  index: number,
+  total: number,
+  rand: () => number
+): Vec3 {
+  const radius = 196;
+  const mode = rand();
+
+  if (mode < 0.38) {
+    const latSteps = [-65, -45, -22, 0, 22, 45, 65];
+    const latDeg = latSteps[Math.floor(rand() * latSteps.length)];
+    const lat = (latDeg * Math.PI) / 180;
+    const lon = rand() * Math.PI * 2;
+    const r = radius + (rand() - 0.5) * 4;
+    return {
+      x: r * Math.cos(lat) * Math.cos(lon),
+      y: r * Math.sin(lat),
+      z: r * Math.cos(lat) * Math.sin(lon),
+    };
+  }
+
+  if (mode < 0.68) {
+    const meridianCount = 14;
+    const lon =
+      (Math.floor(rand() * meridianCount) / meridianCount) * Math.PI * 2;
+    const lat = (rand() - 0.5) * Math.PI;
+    const r = radius + (rand() - 0.5) * 4;
+    return {
+      x: r * Math.cos(lat) * Math.cos(lon),
+      y: r * Math.sin(lat),
+      z: r * Math.cos(lat) * Math.sin(lon),
+    };
+  }
+
+  const phi = Math.acos(1 - (2 * (index + 0.5)) / total);
+  const theta = Math.PI * (1 + Math.sqrt(5)) * index;
+  const jitter = radius + (rand() - 0.5) * 10;
+  return {
+    x: jitter * Math.sin(phi) * Math.cos(theta),
+    y: jitter * Math.cos(phi),
+    z: jitter * Math.sin(phi) * Math.sin(theta),
+  };
+}
+
+/**
+ * Scene 3: 3D Gyroscope / Interlocking Orbital Rings particle sculpture
+ * (3 mutually tilted gimbal rings + precision axle pins + luminous central core sphere).
+ */
+export function sampleGyroscopePoint(rand: () => number): Vec3 {
+  const part = rand();
+
+  const sampleTorusRing = (
+    majorR: number,
+    minorR: number,
+    tiltX: number,
+    tiltZ: number
+  ): Vec3 => {
+    const theta = rand() * Math.PI * 2;
+    const phi = rand() * Math.PI * 2;
+    const r = majorR + Math.cos(phi) * minorR;
+    const lx = Math.cos(theta) * r;
+    const ly = Math.sin(phi) * minorR;
+    const lz = Math.sin(theta) * r;
+
+    // Tilt around X then Z
+    const y1 = ly * Math.cos(tiltX) - lz * Math.sin(tiltX);
+    const z1 = ly * Math.sin(tiltX) + lz * Math.cos(tiltX);
+    const x2 = lx * Math.cos(tiltZ) - y1 * Math.sin(tiltZ);
+    const y2 = lx * Math.sin(tiltZ) + y1 * Math.cos(tiltZ);
+    return { x: x2, y: y2, z: z1 };
   };
 
-  for (let i = 0; i < count; i++) {
-    const legSign = i % 2 === 0 ? 1 : -1;
-    let dy: number;
-    let offset: number;
+  if (part < 0.3) {
+    // Outer gimbal ring
+    return sampleTorusRing(218, 9, 0.42, 0.25);
+  }
+  if (part < 0.58) {
+    // Middle interlocking gimbal ring
+    return sampleTorusRing(172, 8.5, -0.82, 0.58);
+  }
+  if (part < 0.82) {
+    // Inner fast-precessing orbital ring
+    return sampleTorusRing(126, 7.5, 1.18, -0.52);
+  }
+  if (part < 0.9) {
+    // Precision cardinal gimbal axle pins linking outer to inner rings
+    const axis = Math.floor(rand() * 3);
+    const sign = rand() < 0.5 ? -1 : 1;
+    const span = 62 + rand() * 155;
+    const j1 = (rand() - 0.5) * 6;
+    const j2 = (rand() - 0.5) * 6;
+    if (axis === 0) return { x: sign * span, y: j1, z: j2 };
+    if (axis === 1) return { x: j1, y: sign * span, z: j2 };
+    return { x: j1, y: j2, z: sign * span };
+  }
 
-    // 24% of particles hug the diagonal edges and flat end caps for a razor-sharp "X"
-    if (i < count * 0.2) {
-      dy = (rand() * 2 - 1) * X_HALF_HEIGHT;
-      const side = rand() < 0.5 ? -1 : 1;
-      offset = side * (X_STROKE_HALF_WIDTH - rand() * 2.2);
-    } else if (i < count * 0.24) {
-      const capSide = rand() < 0.5 ? -1 : 1;
-      dy = capSide * (X_HALF_HEIGHT - rand() * 2.2);
-      offset = (rand() * 2 - 1) * X_STROKE_HALF_WIDTH;
-    } else {
-      dy = (rand() * 2 - 1) * X_HALF_HEIGHT;
-      offset = (rand() * 2 - 1) * X_STROKE_HALF_WIDTH;
+  // Luminous central gyroscope core sphere
+  const u = rand() * 2 - 1;
+  const theta = rand() * Math.PI * 2;
+  const root = Math.sqrt(1 - u * u);
+  const rad = rand() < 0.72 ? 48 + (rand() - 0.5) * 4 : Math.cbrt(rand()) * 44;
+  return {
+    x: rad * root * Math.cos(theta),
+    y: rad * u,
+    z: rad * root * Math.sin(theta),
+  };
+}
+
+/**
+ * Scene 4: 3D Full-Body Waving Astronaut standing upright in center
+ * (helmet + dark visor cavity, backpack PLSS, torso suit, raised waving left arm,
+ * relaxed right arm, separated legs & moon boots).
+ */
+export function sampleAstronautPoint(rand: () => number): Vec3 {
+  const part = rand();
+
+  if (part < 0.27) {
+    if (rand() < 0.28) {
+      const angle = rand() * Math.PI * 2;
+      const vx = Math.cos(angle) * 34;
+      const vy = -132 + Math.sin(angle) * 24;
+      const vz = 44 + Math.cos(angle * 2) * 3;
+      return { x: vx, y: vy, z: vz };
     }
+    const u = rand() * 2 - 1;
+    const theta = rand() * Math.PI * 2;
+    const root = Math.sqrt(1 - u * u);
+    const rad = 52 + (rand() - 0.5) * 3.5;
+    const x = rad * root * Math.cos(theta);
+    const y = -134 + rad * u;
+    const z = rad * root * Math.sin(theta);
+    if (z > 30 && Math.abs(x) < 28 && y > -152 && y < -114) {
+      return { x: x * 1.04, y, z: -Math.abs(z) };
+    }
+    return { x, y, z };
+  }
 
-    const homeX = CENTER + legSign * X_SLOPE * dy + offset;
-    const homeY = CENTER + dy;
+  if (part < 0.48) {
+    const t = rand();
+    const y = -76 + t * 114;
+    const widthX = 50 - Math.abs(t - 0.35) * 10;
+    const depthZ = 30 - Math.abs(t - 0.35) * 4;
+    const angle = rand() * Math.PI * 2;
+    const shell = 0.9 + rand() * 0.1;
+    return {
+      x: Math.cos(angle) * widthX * shell,
+      y,
+      z: Math.sin(angle) * depthZ * shell,
+    };
+  }
 
-    const colorRoll = rand();
-    const colorIndex: 0 | 1 | 2 =
-      colorRoll < 0.54 ? 0 : colorRoll < 0.82 ? 1 : 2;
-    const baseColor = PARTICLE_PALETTE[colorIndex];
+  if (part < 0.56) {
+    const sx = rand() < 0.5 ? -44 : 44;
+    const edge = rand() < 0.5;
+    return {
+      x: edge ? sx + (rand() - 0.5) * 6 : (rand() - 0.5) * 88,
+      y: -74 + rand() * 98,
+      z: -34 - rand() * 28,
+    };
+  }
 
-    // Crisp fine micro-particles (0.55px - 1.25px) for high-density texture
-    const radius = 0.55 + rand() * 0.7;
-    const baseAlpha = 0.52 + rand() * 0.44;
+  if (part < 0.7) {
+    const t = rand();
+    let cx: number;
+    let cy: number;
+    if (t < 0.48) {
+      const k = t / 0.48;
+      cx = -52 - k * 52;
+      cy = -56 - k * 28;
+    } else {
+      const k = (t - 0.48) / 0.52;
+      cx = -104 - k * 18;
+      cy = -84 - k * 78;
+    }
+    const angle = rand() * Math.PI * 2;
+    const armR = t > 0.85 ? 19 : 14;
+    return {
+      x: cx + Math.cos(angle) * armR,
+      y: cy + Math.sin(angle) * armR * 0.55,
+      z: Math.sin(angle) * armR + 10,
+    };
+  }
+
+  if (part < 0.79) {
+    const t = rand();
+    const cx = 54 + t * 44;
+    const cy = -56 + t * 96;
+    const angle = rand() * Math.PI * 2;
+    const armR = t > 0.85 ? 17 : 13;
+    return {
+      x: cx + Math.cos(angle) * armR,
+      y: cy + Math.sin(angle) * armR * 0.5,
+      z: Math.sin(angle) * armR + 6,
+    };
+  }
+
+  const legSide = rand() < 0.5 ? -1 : 1;
+  const t = rand();
+  const y = 42 + t * 152;
+  const cx = legSide * (28 + t * 18);
+  const angle = rand() * Math.PI * 2;
+  const isBoot = t > 0.82;
+  const legR = isBoot ? 21 : 16;
+  return {
+    x: cx + Math.cos(angle) * legR,
+    y,
+    z: Math.sin(angle) * legR + (isBoot ? 14 : 0),
+  };
+}
+
+export function createSpaceParticles(
+  count: number,
+  seed = 202605
+): SpaceParticle[] {
+  const rand = createSeededRandom(seed);
+  const particles: SpaceParticle[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const rocket = sampleRocketPoint(rand);
+    const satellite = sampleSatellitePoint(rand);
+    const globe = sampleGlobePoint(i, count, rand);
+    const gyroscope = sampleGyroscopePoint(rand);
+    const astronaut = sampleAstronautPoint(rand);
+
+    const u = rand() * 2 - 1;
+    const theta = rand() * Math.PI * 2;
+    const root = Math.sqrt(1 - u * u);
+    const scatterMag = 140 + rand() * 220;
 
     particles.push({
-      homeX,
-      homeY,
-      x: homeX,
-      y: homeY,
+      x: rocket.x,
+      y: rocket.y,
+      z: rocket.z,
       vx: 0,
       vy: 0,
-      radius,
-      colorIndex,
-      baseR: baseColor[0],
-      baseG: baseColor[1],
-      baseB: baseColor[2],
-      baseAlpha,
+      vz: 0,
+      targets: [rocket, satellite, globe, gyroscope, astronaut],
+      scatterDir: {
+        x: root * Math.cos(theta) * scatterMag,
+        y: u * scatterMag,
+        z: root * Math.sin(theta) * scatterMag,
+      },
+      colorIdx: pickCosmicColorIndex(rand()),
+      radius: 0.78 + rand() * 1.32,
+      baseAlpha: 0.48 + rand() * 0.52,
       phase: rand() * Math.PI * 2,
-      driftSpeed: 0.12 + rand() * 0.18,
-      driftAmp: 0.75 + rand() * 1.15,
-      heat: 0,
+      twinkleSpeed: 0.9 + rand() * 1.9,
     });
   }
 
   return particles;
 }
 
-export function stepParticleField(
-  particles: Particle[],
-  pointer: PointerState,
+export function createAmbientStars(
+  count = AMBIENT_STAR_COUNT,
+  seed = 90017
+): AmbientStar[] {
+  const rand = createSeededRandom(seed);
+  const stars: AmbientStar[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const colorRoll = rand();
+    // Mostly white background stardust with subtle orange & sky sparkles
+    const colorIdx: ParticleColorIndex =
+      colorRoll < 0.72 ? 0 : colorRoll < 0.87 ? 1 : 2;
+    stars.push({
+      nx: rand(),
+      ny: rand(),
+      depth: 0.2 + rand() * 0.85,
+      radius: 0.55 + rand() * 1.15,
+      alpha: 0.14 + rand() * 0.48,
+      colorIdx,
+      driftVx: (rand() - 0.5) * 0.008,
+      driftVy: -0.004 - rand() * 0.01,
+    });
+  }
+
+  return stars;
+}
+
+export function getSceneAnchorConfig(
+  sceneIndex: number,
+  isMobile: boolean
+): SceneAnchorConfig {
+  const idx = Math.max(0, Math.min(4, Math.round(sceneIndex)));
+  const stage = SCENE_META[idx]?.stage ?? "rocket";
+
+  if (idx === 0) {
+    return {
+      stage,
+      anchorX: isMobile ? 0.54 : 0.72,
+      anchorY: isMobile ? 0.68 : 0.54,
+      scale: isMobile ? 0.76 : 1.08,
+    };
+  }
+  if (idx === 1) {
+    return {
+      stage,
+      anchorX: isMobile ? 0.5 : 0.3,
+      anchorY: isMobile ? 0.7 : 0.56,
+      scale: isMobile ? 0.74 : 1.05,
+    };
+  }
+  if (idx === 2) {
+    return {
+      stage,
+      anchorX: isMobile ? 0.52 : 0.73,
+      anchorY: isMobile ? 0.68 : 0.54,
+      scale: isMobile ? 0.82 : 1.32,
+    };
+  }
+  if (idx === 3) {
+    // Rotating 3D Gyroscope centered cleanly behind/above the 3-column workflow
+    return {
+      stage,
+      anchorX: isMobile ? 0.5 : 0.7,
+      anchorY: isMobile ? 0.68 : 0.48,
+      scale: isMobile ? 0.72 : 1.06,
+    };
+  }
+  return {
+    stage,
+    anchorX: 0.5,
+    anchorY: isMobile ? 0.52 : 0.53,
+    scale: isMobile ? 0.86 : 1.2,
+  };
+}
+
+/**
+ * Smoothly steps each particle toward the locked active scene's 3D formation
+ * using a balanced ~0.055 per-frame lerp (60fps) and a gentle mid-transition
+ * radial scatter impulse sin(progress * Math.PI) (~850-950ms settling time).
+ */
+export function stepMorphParticles(
+  particles: SpaceParticle[],
+  targetScene: number,
+  transitionProgress: number,
   timeSec: number,
-  rawDt: number
+  dt: number,
+  isStatic = false
 ): void {
-  // Clamp dt so tab-switching or frame hitches never explode physics
-  const dt = Math.max(0.001, Math.min(rawDt, 0.04));
-  const interactSq = INTERACT_RADIUS * INTERACT_RADIUS;
-  const drag = Math.exp(-DAMPING * dt);
+  const safeDt = Math.min(Math.max(dt, 0.001), 0.05);
+  const sceneIdx = clampSceneIndex(targetScene);
+  const scatter = isStatic ? 0 : getMorphScatterImpulse(transitionProgress);
+  const lerpAlpha = isStatic
+    ? 1
+    : getMorphLerpFactor(safeDt, PARTICLE_MORPH_LERP_60FPS);
+
+  // Subtle orbital swirl peaking cleanly at transition midpoint
+  const swirlAngle = scatter * 0.65;
+  const cosS = Math.cos(swirlAngle);
+  const sinS = Math.sin(swirlAngle);
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
+    const target = p.targets[sceneIdx];
 
-    // Gentle living micro-drift around home position
-    const driftX = Math.cos(timeSec * p.driftSpeed + p.phase) * p.driftAmp;
-    const driftY = Math.sin(timeSec * p.driftSpeed * 0.85 + p.phase) * p.driftAmp;
-    const targetX = p.homeX + driftX;
-    const targetY = p.homeY + driftY;
+    const rotatedX = target.x * cosS - target.z * sinS;
+    const rotatedZ = target.x * sinS + target.z * cosS;
 
-    let displaced = false;
-    if (pointer.active) {
-      const dx = p.x - pointer.x;
-      const dy = p.y - pointer.y;
-      const distSq = dx * dx + dy * dy;
+    const breathe = isStatic ? 0 : Math.sin(timeSec * 1.15 + p.phase) * 2.0;
+    const goalX = rotatedX + p.scatterDir.x * scatter * 0.52 + breathe;
+    const goalY = target.y + p.scatterDir.y * scatter * 0.44 + breathe * 0.65;
+    const goalZ = rotatedZ + p.scatterDir.z * scatter * 0.52;
 
-      if (distSq < interactSq && distSq > 0.0001) {
-        const dist = Math.sqrt(distSq);
-        const proximity = 1 - dist / INTERACT_RADIUS;
-        const nx = dx / dist;
-        const ny = dy / dist;
-
-        // Smooth radial parting + subtle tangential swirl
-        const radialAccel = proximity * proximity * REPEL_STRENGTH;
-        const swirlAccel = proximity * SWIRL_STRENGTH;
-
-        p.vx += (nx * radialAccel - ny * swirlAccel) * dt;
-        p.vy += (ny * radialAccel + nx * swirlAccel) * dt;
-
-        // Subtle fluid wake carried from pointer motion
-        p.vx += pointer.vx * proximity * WAKE_COUPLING * dt;
-        p.vy += pointer.vy * proximity * WAKE_COUPLING * dt;
-
-        p.heat = Math.min(1, p.heat + proximity * dt * 3.5);
-        displaced = true;
-      }
-    }
-
-    // Soft, unhurried spring return back to home coordinate
-    p.vx += (targetX - p.x) * STIFFNESS * dt;
-    p.vy += (targetY - p.y) * STIFFNESS * dt;
-
-    // Frame-rate-independent fluid damping
-    p.vx *= drag;
-    p.vy *= drag;
-
-    // Soft speed ceiling so fast cursor sweeps feel silky, never twitchy
-    const speedSq = p.vx * p.vx + p.vy * p.vy;
-    if (speedSq > MAX_SPEED * MAX_SPEED) {
-      const scale = MAX_SPEED / Math.sqrt(speedSq);
-      p.vx *= scale;
-      p.vy *= scale;
-    }
-
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-
-    // Smoothly relax energized glow back to resting opacity
-    if (!displaced && p.heat > 0) {
-      const homeDist = Math.hypot(p.x - targetX, p.y - targetY);
-      const targetHeat = Math.min(1, homeDist / 45);
-      p.heat += (targetHeat - p.heat) * Math.min(1, dt * 3.2);
-      if (p.heat < 0.01) p.heat = 0;
+    if (isStatic) {
+      p.x = target.x;
+      p.y = target.y;
+      p.z = target.z;
+      p.vx = 0;
+      p.vy = 0;
+      p.vz = 0;
+    } else {
+      p.x += (goalX - p.x) * lerpAlpha;
+      p.y += (goalY - p.y) * lerpAlpha;
+      p.z += (goalZ - p.z) * lerpAlpha;
     }
   }
+}
+
+export function projectPoint3D(
+  x: number,
+  y: number,
+  z: number,
+  rotY: number,
+  rotX: number,
+  originX: number,
+  originY: number,
+  viewportScale: number
+): ProjectedPoint {
+  const cosY = Math.cos(rotY);
+  const sinY = Math.sin(rotY);
+  const x1 = x * cosY - z * sinY;
+  const z1 = x * sinY + z * cosY;
+
+  const cosX = Math.cos(rotX);
+  const sinX = Math.sin(rotX);
+  const y1 = y * cosX - z1 * sinX;
+  const z2 = y * sinX + z1 * cosX;
+
+  const focalLength = 760;
+  const cameraZ = 680;
+  const perspective = focalLength / Math.max(150, cameraZ + z2);
+
+  return {
+    screenX: originX + x1 * viewportScale * perspective,
+    screenY: originY + y1 * viewportScale * perspective,
+    perspective,
+    depthNorm: clamp01((260 - z2) / 520),
+  };
 }

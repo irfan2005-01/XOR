@@ -12,14 +12,16 @@ import {
 } from "@/lib/appwrite";
 import { processAvatarImage } from "@/lib/avatar-upload";
 import { generateUniqueMemberId } from "@/lib/member-id";
-import type {
-  Announcement,
-  AnnouncementCategory,
-  CreateAnnouncementInput,
-  LogInInput,
-  MemberRole,
-  PublicMember,
-  SignUpInput,
+import {
+  isClubLeadRole,
+  normalizeMemberRole,
+  type Announcement,
+  type AnnouncementCategory,
+  type CreateAnnouncementInput,
+  type LogInInput,
+  type MemberRole,
+  type PublicMember,
+  type SignUpInput,
 } from "@/types/portal";
 
 export const CLUB_LEAD_PASSCODE = "XOR-LEAD-26";
@@ -96,6 +98,32 @@ function clearAllLocalAnnouncements() {
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem("xor_local_announcements");
+  } catch {}
+}
+
+function getLocalLeads(): PublicMember[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem("xor_local_leads") || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item) => ({
+      ...item,
+      role: normalizeMemberRole(item?.role),
+    })) as PublicMember[];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalLead(member: PublicMember) {
+  if (typeof window === "undefined" || !isClubLeadRole(member.role)) return;
+  try {
+    const list = getLocalLeads().filter(
+      (existing) =>
+        existing.userId !== member.userId && existing.id !== member.id
+    );
+    list.push({ ...member, role: "lead" });
+    localStorage.setItem("xor_local_leads", JSON.stringify(list));
   } catch {}
 }
 
@@ -194,9 +222,9 @@ function buildAvatarViewUrl(rawUrl: string, projectId: string): string {
 }
 
 function mapMemberDoc(doc: AppwriteDocumentLike): PublicMember {
-  const rawRole = String(doc.role ?? "MEMBER");
-  const role: MemberRole = rawRole === "CLUB LEAD" ? "CLUB LEAD" : "MEMBER";
-  const rawAvatarUrl = typeof doc.avatarUrl === "string" ? doc.avatarUrl.trim() : "";
+  const role: MemberRole = normalizeMemberRole(String(doc.role ?? "member"));
+  const rawAvatarUrl =
+    typeof doc.avatarUrl === "string" ? doc.avatarUrl.trim() : "";
   return {
     docId: doc.$id,
     userId: String(doc.userId ?? ""),
@@ -207,7 +235,7 @@ function mapMemberDoc(doc: AppwriteDocumentLike): PublicMember {
     email: String(doc.email ?? ""),
     role,
     joinedAt: String(doc.joinedAt ?? new Date().toISOString()),
-    avatarUrl: rawAvatarUrl || undefined,
+    avatarUrl: rawAvatarUrl,
   };
 }
 
@@ -237,7 +265,7 @@ function mapAnnouncementDoc(doc: AppwriteDocumentLike): Announcement {
     venue: unwrapOptionalField(doc.venue),
     category,
     authorName: String(doc.authorName ?? "XOR Lead"),
-    authorRole: "CLUB LEAD",
+    authorRole: "lead",
     createdAt: String(doc.createdAt ?? new Date().toISOString()),
     rsvpMemberIds: rsvpUids,
   };
@@ -247,9 +275,14 @@ function formatAppwriteError(err: unknown, fallback: string): Error {
   if (err && typeof err === "object") {
     const appwriteErr = err as { code?: number; type?: string; message?: string };
     if (appwriteErr.code === 409 && appwriteErr.type === "user_already_exists") {
-      return new Error("An account with this email already exists. Please log in instead.");
+      return new Error(
+        "An account with this email already exists. Please log in instead."
+      );
     }
-    if (appwriteErr.code === 401 && appwriteErr.type === "user_invalid_credentials") {
+    if (
+      appwriteErr.code === 401 &&
+      appwriteErr.type === "user_invalid_credentials"
+    ) {
       return new Error("Invalid email or password.");
     }
     if (appwriteErr.message) {
@@ -273,7 +306,8 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
     queryBuilder: customDeps?.queryBuilder ?? Query,
     projectId: customDeps?.projectId ?? APPWRITE_PROJECT_ID,
     databaseId: customDeps?.databaseId ?? APPWRITE_DATABASE_ID,
-    membersCollectionId: customDeps?.membersCollectionId ?? MEMBERS_COLLECTION_ID,
+    membersCollectionId:
+      customDeps?.membersCollectionId ?? MEMBERS_COLLECTION_ID,
     announcementsCollectionId:
       customDeps?.announcementsCollectionId ?? ANNOUNCEMENTS_COLLECTION_ID,
     avatarsBucketId: customDeps?.avatarsBucketId ?? AVATARS_BUCKET_ID,
@@ -293,10 +327,14 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
         return candidate;
       }
     }
-    throw new Error("Unable to allocate a unique XOR member ID. Please try again.");
+    throw new Error(
+      "Unable to allocate a unique XOR member ID. Please try again."
+    );
   }
 
-  async function findMemberByUserId(userId: string): Promise<PublicMember | null> {
+  async function findMemberByUserId(
+    userId: string
+  ): Promise<PublicMember | null> {
     const res = await deps.databases.listDocuments(
       deps.databaseId,
       deps.membersCollectionId,
@@ -318,7 +356,7 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
             authUser.email?.toLowerCase().includes("lead") ||
             authUser.name?.toLowerCase().includes("lead")
           ) {
-            profile.role = "CLUB LEAD";
+            profile.role = "lead";
           }
           return profile;
         }
@@ -331,7 +369,12 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
       try {
         const stored = localStorage.getItem("xor_active_session");
         if (stored) {
-          return JSON.parse(stored) as PublicMember;
+          const parsed = JSON.parse(stored) as PublicMember;
+          return {
+            ...parsed,
+            role: normalizeMemberRole(parsed.role),
+            avatarUrl: parsed.avatarUrl ?? "",
+          };
         }
       } catch {}
     }
@@ -351,6 +394,54 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
     }
   }
 
+  async function getClubLeads(): Promise<PublicMember[]> {
+    const remoteLeads: PublicMember[] = [];
+
+    try {
+      const primaryRes = await deps.databases.listDocuments(
+        deps.databaseId,
+        deps.membersCollectionId,
+        [deps.queryBuilder.equal("role", "lead")]
+      );
+      remoteLeads.push(...primaryRes.documents.map(mapMemberDoc));
+    } catch {
+      // Continue gracefully if guest reads are restricted or network is offline
+    }
+
+    // Also pick up any legacy records stored as "CLUB LEAD"
+    try {
+      const legacyRes = await deps.databases.listDocuments(
+        deps.databaseId,
+        deps.membersCollectionId,
+        [deps.queryBuilder.equal("role", "CLUB LEAD")]
+      );
+      remoteLeads.push(...legacyRes.documents.map(mapMemberDoc));
+    } catch {
+      // Ignore legacy query errors
+    }
+
+    const localLeads = getLocalLeads();
+    const combined = [...remoteLeads, ...localLeads];
+
+    const seen = new Set<string>();
+    const deduped: PublicMember[] = [];
+
+    for (const member of combined) {
+      if (!isClubLeadRole(member.role)) continue;
+      const key = (member.userId || member.id || member.email).toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      deduped.push({
+        ...member,
+        role: "lead",
+        avatarUrl: member.avatarUrl ?? "",
+      });
+    }
+
+    deduped.sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
+    return deduped;
+  }
+
   async function signUpMember(input: SignUpInput): Promise<PublicMember> {
     const fullName = input.fullName.trim();
     const usn = input.usn.trim().toUpperCase();
@@ -359,10 +450,9 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
     const password = input.password;
 
     if (!fullName || !usn || !branchSemester || !email || !password) {
-      throw new Error("Please complete all required student registration fields.");
-    }
-    if (!input.avatarFile) {
-      throw new Error("Please upload a profile photo to create your XOR member pass.");
+      throw new Error(
+        "Please complete all required student registration fields."
+      );
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new Error("Please enter a valid email address.");
@@ -371,12 +461,16 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
       throw new Error("Password must be at least 8 characters long.");
     }
 
-    let role: MemberRole = "MEMBER";
+    let role: MemberRole = "member";
     if (input.wantsLeadRole) {
-      if ((input.leadPasscode ?? "").trim() !== CLUB_LEAD_PASSCODE) {
-        throw new Error("Invalid Club Lead passcode. Leave unchecked to join as a Member.");
+      if (
+        (input.leadPasscode ?? "").trim().toUpperCase() !== CLUB_LEAD_PASSCODE
+      ) {
+        throw new Error(
+          "Invalid Club Lead passcode. Leave unchecked to join as a Member."
+        );
       }
-      role = "CLUB LEAD";
+      role = "lead";
     }
 
     try {
@@ -408,15 +502,20 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
         }
       }
 
-      const uploadedFile = await deps.storage.createFile(
-        deps.avatarsBucketId,
-        deps.idGenerator.unique(),
-        input.avatarFile
-      );
-      const avatarUrl = buildAvatarViewUrl(
-        deps.storage.getFileView(deps.avatarsBucketId, uploadedFile.$id).toString(),
-        deps.projectId
-      );
+      let avatarUrl = "";
+      if (input.avatarFile) {
+        const uploadedFile = await deps.storage.createFile(
+          deps.avatarsBucketId,
+          deps.idGenerator.unique(),
+          input.avatarFile
+        );
+        avatarUrl = buildAvatarViewUrl(
+          deps.storage
+            .getFileView(deps.avatarsBucketId, uploadedFile.$id)
+            .toString(),
+          deps.projectId
+        );
+      }
 
       const memberId = await allocateUniqueMemberId();
       const joinedAt = new Date().toISOString();
@@ -438,9 +537,21 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
         }
       );
 
-      return mapMemberDoc(createdDoc);
+      const member = mapMemberDoc(createdDoc);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("xor_active_session", JSON.stringify(member));
+        } catch {}
+      }
+      if (member.role === "lead") {
+        saveLocalLead(member);
+      }
+      return member;
     } catch (err) {
-      throw formatAppwriteError(err, "Could not create your XOR member account.");
+      throw formatAppwriteError(
+        err,
+        "Could not create your XOR member account."
+      );
     }
   }
 
@@ -492,21 +603,27 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
       if (authUser?.$id) {
         const profile = await findMemberByUserId(authUser.$id);
         if (profile) {
-          if (isLeadCredential && profile.role !== "CLUB LEAD") {
+          if (isLeadCredential && !isClubLeadRole(profile.role)) {
             try {
               await deps.databases.updateDocument(
                 deps.databaseId,
                 deps.membersCollectionId,
                 profile.docId || profile.userId,
-                { role: "CLUB LEAD" }
+                { role: "lead" }
               );
             } catch {}
-            profile.role = "CLUB LEAD";
+            profile.role = "lead";
           }
           if (typeof window !== "undefined") {
             try {
-              localStorage.setItem("xor_active_session", JSON.stringify(profile));
+              localStorage.setItem(
+                "xor_active_session",
+                JSON.stringify(profile)
+              );
             } catch {}
+          }
+          if (profile.role === "lead") {
+            saveLocalLead(profile);
           }
           return profile;
         }
@@ -522,9 +639,9 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
             usn: "LEAD-01",
             branchSemester: "Club Lead • Core",
             email: authUser.email || email,
-            role: "CLUB LEAD",
+            role: "lead",
             joinedAt,
-            avatarUrl: undefined,
+            avatarUrl: "",
           };
 
           try {
@@ -539,7 +656,7 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
                 usn: "LEAD-01",
                 branchSem: "Club Lead • Core",
                 email: authUser.email || email,
-                role: "CLUB LEAD",
+                role: "lead",
                 joinedAt,
                 avatarUrl: "",
               }
@@ -548,13 +665,19 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
 
           if (typeof window !== "undefined") {
             try {
-              localStorage.setItem("xor_active_session", JSON.stringify(leadMember));
+              localStorage.setItem(
+                "xor_active_session",
+                JSON.stringify(leadMember)
+              );
             } catch {}
           }
+          saveLocalLead(leadMember);
           return leadMember;
         }
 
-        throw new Error("Member profile record was not found for this account.");
+        throw new Error(
+          "Member profile record was not found for this account."
+        );
       }
     } catch (err) {
       if (isLeadCredential) {
@@ -566,15 +689,19 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
           usn: "LEAD-01",
           branchSemester: "Club Lead • Core",
           email,
-          role: "CLUB LEAD",
+          role: "lead",
           joinedAt: new Date().toISOString(),
-          avatarUrl: undefined,
+          avatarUrl: "",
         };
         if (typeof window !== "undefined") {
           try {
-            localStorage.setItem("xor_active_session", JSON.stringify(fallbackLead));
+            localStorage.setItem(
+              "xor_active_session",
+              JSON.stringify(fallbackLead)
+            );
           } catch {}
         }
+        saveLocalLead(fallbackLead);
         return fallbackLead;
       }
       throw formatAppwriteError(err, "Invalid email or password.");
@@ -589,15 +716,19 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
         usn: "LEAD-01",
         branchSemester: "Club Lead • Core",
         email,
-        role: "CLUB LEAD",
+        role: "lead",
         joinedAt: new Date().toISOString(),
-        avatarUrl: undefined,
+        avatarUrl: "",
       };
       if (typeof window !== "undefined") {
         try {
-          localStorage.setItem("xor_active_session", JSON.stringify(fallbackLead));
+          localStorage.setItem(
+            "xor_active_session",
+            JSON.stringify(fallbackLead)
+          );
         } catch {}
       }
+      saveLocalLead(fallbackLead);
       return fallbackLead;
     }
 
@@ -608,7 +739,7 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
     userIdOrMemberId: string,
     passcode: string
   ): Promise<PublicMember> {
-    if (passcode.trim() !== CLUB_LEAD_PASSCODE) {
+    if (passcode.trim().toUpperCase() !== CLUB_LEAD_PASSCODE) {
       throw new Error("Incorrect Club Lead passcode.");
     }
 
@@ -636,10 +767,17 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
       deps.databaseId,
       deps.membersCollectionId,
       doc.$id,
-      { role: "CLUB LEAD" }
+      { role: "lead" }
     );
 
-    return mapMemberDoc(updated);
+    const member = mapMemberDoc(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("xor_active_session", JSON.stringify(member));
+      } catch {}
+    }
+    saveLocalLead(member);
+    return member;
   }
 
   async function updateMemberAvatar(
@@ -672,7 +810,16 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
         { avatarUrl }
       );
 
-      return mapMemberDoc(updated);
+      const member = mapMemberDoc(updated);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("xor_active_session", JSON.stringify(member));
+        } catch {}
+      }
+      if (member.role === "lead") {
+        saveLocalLead(member);
+      }
+      return member;
     } catch (err) {
       throw formatAppwriteError(err, "Could not update your profile photo.");
     }
@@ -732,7 +879,7 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
     input: CreateAnnouncementInput,
     author: PublicMember
   ): Promise<Announcement[]> {
-    if (author.role !== "CLUB LEAD") {
+    if (!isClubLeadRole(author.role)) {
       throw new Error("Only Club Leads can send broadcasts in this channel.");
     }
 
@@ -756,7 +903,7 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
       dateTime: dateTime || "",
       venue: venue || "",
       authorName: author.fullName || "XOR Lead",
-      authorRole: "CLUB LEAD",
+      authorRole: "lead",
       createdAt,
       rsvpMemberIds: [],
     };
@@ -832,7 +979,7 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
     announcementId: string,
     actor: PublicMember
   ): Promise<Announcement[]> {
-    if (actor.role !== "CLUB LEAD") {
+    if (!isClubLeadRole(actor.role)) {
       throw new Error("Only Club Leads can delete broadcasts in this channel.");
     }
 
@@ -855,7 +1002,7 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
   async function clearAllAnnouncements(
     actor: PublicMember
   ): Promise<Announcement[]> {
-    if (actor.role !== "CLUB LEAD") {
+    if (!isClubLeadRole(actor.role)) {
       throw new Error("Only Club Leads can clear broadcasts in this channel.");
     }
 
@@ -873,7 +1020,11 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
       await Promise.all(
         existing.documents.map((doc) =>
           deps.databases
-            .deleteDocument(deps.databaseId, deps.announcementsCollectionId, doc.$id)
+            .deleteDocument(
+              deps.databaseId,
+              deps.announcementsCollectionId,
+              doc.$id
+            )
             .catch(() => {})
         )
       );
@@ -887,6 +1038,7 @@ export function createPortalService(customDeps?: Partial<PortalServiceDeps>) {
   return {
     getCurrentSession,
     getMemberCount,
+    getClubLeads,
     signUpMember,
     registerMember: signUpMember,
     loginMember,

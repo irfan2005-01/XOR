@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
-import { BRAND_CONFIG } from "@/data/psyctech";
 
 interface FaqItem {
   id: string;
@@ -23,7 +22,7 @@ const FAQ_ITEMS: FaqItem[] = [
     id: "id-pass",
     question: "How do I claim my verified XOR-26-XXXX virtual ID pass?",
     answer:
-      "Select Create Member Account, enter your full name, LAEC USN, branch, semester, and upload a student portrait photo. Your interactive front-and-back XOR-26-XXXX pass—including a scannable QR verification code and 2x PNG download—is issued immediately on your dashboard.",
+      "Select Member Sign Up, enter your full name, LAEC USN, branch, and optionally upload a student portrait photo (or add one later from your dashboard). Your interactive front-and-back XOR-26-XXXX pass—including a scannable QR verification code and 2x PNG download—is issued immediately.",
   },
   {
     id: "broadcast-channel",
@@ -71,16 +70,16 @@ export function FaqSection({ standalone = false }: FaqSectionProps) {
       aria-labelledby="faq-heading"
       className={
         standalone
-          ? "bg-[#162323] py-12 sm:py-20"
-          : "border-t border-[#484A43]/45 bg-[#1D2C2C]/25 py-16 sm:py-24"
+          ? "py-12 sm:py-20"
+          : "border-t border-white/15 py-16 sm:py-24"
       }
     >
-      <div className="max-w-6xl mx-auto px-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
         {standalone && (
           <div className="mb-8">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.16em] text-[#B59289] hover:text-[#BC806A] transition-colors group"
+              className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.16em] text-[#A1A1AA] hover:text-[#FB923C] transition-colors group"
             >
               <ArrowLeft
                 className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform"
@@ -94,38 +93,35 @@ export function FaqSection({ standalone = false }: FaqSectionProps) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
           {/* Left Editorial Intro */}
           <div className="lg:col-span-4 lg:sticky lg:top-24">
-            <p className="text-xs font-mono tracking-[0.2em] uppercase text-[#BC806A]">
+            <p className="text-xs font-mono tracking-[0.2em] uppercase text-[#FB923C] font-medium">
               {standalone
                 ? "XOR • Frequently Asked Questions"
                 : "Frequently Asked Questions"}
             </p>
             <HeadingTag
               id="faq-heading"
-              className="text-3xl sm:text-4xl font-medium tracking-tight text-[#EFE7E4] mt-2"
+              className="font-heading text-3xl sm:text-4xl font-semibold tracking-tight text-white mt-2"
             >
               Everything About XOR
             </HeadingTag>
-            <p className="text-sm text-[#B59289] leading-relaxed mt-3">
-              Clear answers on membership eligibility, claiming your XOR pass, and participating in campus workshops and build sprints at LAEC Bidar.
+            <p className="text-sm text-[#A1A1AA] leading-relaxed mt-3">
+              Clear answers on membership eligibility, claiming your{" "}
+              <span className="font-mono text-[#38BDF8]">XOR-26-XXXX</span>{" "}
+              pass, and participating in campus workshops and build sprints at
+              LAEC Bidar.
             </p>
 
-            <div className="mt-6 pt-5 border-t border-[#484A43]/45 flex flex-col gap-3 text-xs font-mono">
+            <div className="mt-6 pt-5 border-t border-white/15 flex flex-col gap-3 text-xs font-mono">
               <Link
                 href="/community"
-                className="inline-flex items-center gap-2 text-[#EFE7E4] hover:text-[#BC806A] transition-colors group w-fit"
+                className="inline-flex items-center gap-2 text-[#FB923C] hover:text-[#FDBA74] transition-colors group w-fit"
               >
                 <span>Open Broadcast Channel</span>
                 <ArrowRight
-                  className="w-3.5 h-3.5 text-[#BC806A] group-hover:translate-x-0.5 transition-transform"
+                  className="w-3.5 h-3.5 text-[#FB923C] group-hover:translate-x-0.5 transition-transform"
                   strokeWidth={1.75}
                 />
               </Link>
-              <a
-                href={`mailto:${BRAND_CONFIG.email}`}
-                className="text-[#806B64] hover:text-[#B59289] transition-colors w-fit"
-              >
-                {BRAND_CONFIG.email}
-              </a>
             </div>
           </div>
 
@@ -140,10 +136,10 @@ export function FaqSection({ standalone = false }: FaqSectionProps) {
               return (
                 <div
                   key={item.id}
-                  className={`rounded-xl border transition-colors ${
+                  className={`rounded-xl border backdrop-blur-md transition-colors ${
                     isOpen
-                      ? "bg-[#1D2C2C] border-[#BC806A]/60"
-                      : "bg-[#1D2C2C]/65 border-[#484A43]/55 hover:border-[#806B64]/80"
+                      ? "bg-[#0D0E14]/80 border-[#FB923C]/50 shadow-xl"
+                      : "bg-[#0D0E14]/70 border-white/15 hover:border-[#38BDF8]/50"
                   }`}
                 >
                   <h2>
@@ -153,17 +149,17 @@ export function FaqSection({ standalone = false }: FaqSectionProps) {
                       aria-expanded={isOpen}
                       aria-controls={panelId}
                       onClick={() => toggleItem(index)}
-                      className="w-full px-5 py-4 sm:px-6 sm:py-5 flex items-center justify-between gap-4 text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#BC806A] rounded-xl"
+                      className="w-full px-5 py-4 sm:px-6 sm:py-5 flex items-center justify-between gap-4 text-left cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FB923C] rounded-xl"
                     >
                       <div className="flex items-baseline gap-3.5 sm:gap-4 min-w-0">
                         <span
                           className={`text-xs font-mono tabular-nums shrink-0 transition-colors ${
-                            isOpen ? "text-[#BC806A]" : "text-[#806B64]"
+                            isOpen ? "text-[#FB923C]" : "text-[#38BDF8]/80"
                           }`}
                         >
                           {indexLabel}
                         </span>
-                        <span className="text-sm sm:text-base font-medium text-[#EFE7E4] leading-snug">
+                        <span className="text-sm sm:text-base font-medium text-white leading-snug">
                           {item.question}
                         </span>
                       </div>
@@ -172,8 +168,8 @@ export function FaqSection({ standalone = false }: FaqSectionProps) {
                         aria-hidden="true"
                         className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 transition-colors ${
                           isOpen
-                            ? "border-[#BC806A]/60 bg-[#BC806A]/15 text-[#BC806A]"
-                            : "border-[#484A43]/70 bg-[#162323]/70 text-[#806B64]"
+                            ? "border-[#FB923C]/60 bg-[#FB923C]/15 text-[#FB923C]"
+                            : "border-white/15 bg-[#050507] text-[#A1A1AA]"
                         }`}
                       >
                         <Plus
@@ -214,7 +210,7 @@ export function FaqSection({ standalone = false }: FaqSectionProps) {
                         className="overflow-hidden"
                       >
                         <div className="px-5 pb-5 sm:px-6 sm:pb-6 pl-12 sm:pl-[3.25rem] pr-12">
-                          <p className="text-sm text-[#B59289] leading-relaxed">
+                          <p className="text-sm text-[#A1A1AA] leading-relaxed">
                             {item.answer}
                           </p>
                         </div>

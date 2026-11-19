@@ -72,7 +72,7 @@ export async function processAvatarImage(
     const sx = Math.max(0, (img.naturalWidth - srcSide) / 2);
     const sy = Math.max(0, (img.naturalHeight - srcSide) / 2);
 
-    ctx.fillStyle = "#162323";
+    ctx.fillStyle = "#050507";
     ctx.fillRect(0, 0, AVATAR_TARGET_SIZE, AVATAR_TARGET_SIZE);
     ctx.drawImage(
       img,

@@ -1,4 +1,17 @@
-export type MemberRole = "MEMBER" | "CLUB LEAD";
+export type MemberRole = "lead" | "member";
+
+export function isClubLeadRole(role?: string | null): boolean {
+  const normalized = (role ?? "").trim().toLowerCase();
+  return normalized === "lead" || normalized === "club lead";
+}
+
+export function normalizeMemberRole(role?: string | null): MemberRole {
+  return isClubLeadRole(role) ? "lead" : "member";
+}
+
+export function formatMemberRoleLabel(role?: string | null): string {
+  return isClubLeadRole(role) ? "CLUB LEAD" : "MEMBER";
+}
 
 export interface PublicMember {
   docId?: string; // Appwrite row/document $id
@@ -10,7 +23,7 @@ export interface PublicMember {
   email: string;
   role: MemberRole;
   joinedAt: string; // ISO timestamp
-  avatarUrl?: string; // Appwrite Storage file view URL
+  avatarUrl?: string; // Appwrite Storage file view URL (optional)
 }
 
 export interface SignUpInput {

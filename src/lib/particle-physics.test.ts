@@ -1,129 +1,113 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  CENTER,
-  INTERACT_RADIUS,
-  MAX_SPEED,
-  PARTICLE_COUNT,
-  PARTICLE_PALETTE,
-  X_HALF_HEIGHT,
-  X_SLOPE,
-  createParticles,
-  isPointInGeometricX,
-  stepParticleField,
-  type PointerState,
+  AMBIENT_STAR_COUNT,
+  COSMIC_PALETTE_RGB,
+  DESKTOP_PARTICLE_COUNT,
+  MOBILE_PARTICLE_COUNT,
+  createAmbientStars,
+  createSpaceParticles,
+  getParticleBudget,
+  getSceneAnchorConfig,
+  projectPoint3D,
+  stepMorphParticles,
 } from "./particle-physics";
 
-test("createParticles generates ~2600 brand-colored micro-particles forming a sharp geometric X", () => {
-  assert.equal(PARTICLE_COUNT, 2600);
-  const particles = createParticles();
-  assert.equal(particles.length, PARTICLE_COUNT);
+test("cosmic particle palette matches 65% white, 20% light orange, 15% electric sky blue", () => {
+  assert.deepEqual(COSMIC_PALETTE_RGB[0], [255, 255, 255]);
+  assert.deepEqual(COSMIC_PALETTE_RGB[1], [251, 146, 60]);
+  assert.deepEqual(COSMIC_PALETTE_RGB[2], [56, 189, 248]);
+  assert.equal(getParticleBudget(1440), DESKTOP_PARTICLE_COUNT);
+  assert.equal(getParticleBudget(390), MOBILE_PARTICLE_COUNT);
+  assert.equal(AMBIENT_STAR_COUNT, 280);
 
-  const colorCounts = [0, 0, 0];
-  let q1Count = 0; // top-left arm
-  let q2Count = 0; // top-right arm
-  let q3Count = 0; // bottom-left arm
-  let q4Count = 0; // bottom-right arm
+  const particles = createSpaceParticles(2000);
+  const counts = [0, 0, 0];
+  for (const p of particles) counts[p.colorIdx]++;
+  const whiteRatio = counts[0] / particles.length;
+  const orangeRatio = counts[1] / particles.length;
+  const skyRatio = counts[2] / particles.length;
+
+  assert.ok(Math.abs(whiteRatio - 0.65) < 0.04, `white ratio=${whiteRatio}`);
+  assert.ok(Math.abs(orangeRatio - 0.2) < 0.04, `orange ratio=${orangeRatio}`);
+  assert.ok(Math.abs(skyRatio - 0.15) < 0.04, `sky ratio=${skyRatio}`);
+});
+
+test("createSpaceParticles builds 5 finite 3D silhouettes (Rocket, Satellite, Globe, Gyroscope, Astronaut)", () => {
+  const particles = createSpaceParticles(200);
+  assert.equal(particles.length, 200);
 
   for (const p of particles) {
-    assert.ok(
-      isPointInGeometricX(p.homeX, p.homeY),
-      `particle (${p.homeX.toFixed(1)}, ${p.homeY.toFixed(1)}) outside geometric X bounds`
-    );
-    assert.ok(p.radius >= 0.5 && p.radius <= 1.35, `particle radius ${p.radius} should be micro`);
-    assert.ok(p.driftSpeed <= 0.45, `ambient driftSpeed ${p.driftSpeed} should be calm`);
-
-    const paletteColor = PARTICLE_PALETTE[p.colorIndex];
-    assert.equal(p.baseR, paletteColor[0]);
-    assert.equal(p.baseG, paletteColor[1]);
-    assert.equal(p.baseB, paletteColor[2]);
-    colorCounts[p.colorIndex] += 1;
-
-    if (p.homeX < CENTER - 30 && p.homeY < CENTER - 30) q1Count += 1;
-    if (p.homeX > CENTER + 30 && p.homeY < CENTER - 30) q2Count += 1;
-    if (p.homeX < CENTER - 30 && p.homeY > CENTER + 30) q3Count += 1;
-    if (p.homeX > CENTER + 30 && p.homeY > CENTER + 30) q4Count += 1;
-  }
-
-  // All three brand colors (#EFE7E4, #B59289, #BC806A) are represented
-  assert.ok(colorCounts[0] > 300, "expected Ivory Sand (#EFE7E4) particles");
-  assert.ok(colorCounts[1] > 150, "expected Sand (#B59289) particles");
-  assert.ok(colorCounts[2] > 100, "expected Brick Rose (#BC806A) particles");
-
-  // All four arms of the X are well populated, while open side wedges remain empty
-  assert.ok(q1Count > 80 && q2Count > 80 && q3Count > 80 && q4Count > 80);
-  assert.equal(isPointInGeometricX(CENTER + X_SLOPE * X_HALF_HEIGHT + 50, CENTER), false);
-  assert.equal(isPointInGeometricX(CENTER, CENTER - X_HALF_HEIGHT + 10), false);
-});
-
-test("hovering physics smoothly repels and swirls X particles within generous radius", () => {
-  const particles = createParticles(240);
-  const target = particles.reduce(
-    (best, curr) => (curr.homeX > best.homeX ? curr : best),
-    particles[0]
-  );
-
-  const pointer: PointerState = {
-    x: target.homeX - 20,
-    y: target.homeY,
-    vx: 120,
-    vy: 0,
-    active: true,
-  };
-
-  for (let i = 0; i < 24; i++) {
-    stepParticleField(particles, pointer, i / 60, 1 / 60);
-  }
-
-  const displacement = Math.hypot(target.x - target.homeX, target.y - target.homeY);
-  const speed = Math.hypot(target.vx, target.vy);
-
-  assert.ok(displacement > 8, `expected noticeable hover displacement, got ${displacement}`);
-  assert.ok(speed <= MAX_SPEED + 0.01, `speed ${speed} exceeded MAX_SPEED`);
-  assert.ok(target.heat > 0.1, "hovered particle should gain luminous heat");
-
-  const farParticle = particles.find(
-    (p) => Math.hypot(p.homeX - pointer.x, p.homeY - pointer.y) > INTERACT_RADIUS + 20
-  );
-  if (farParticle) {
-    const farDist = Math.hypot(farParticle.x - farParticle.homeX, farParticle.y - farParticle.homeY);
-    assert.ok(farDist < 5, `far particle should only gently drift, got ${farDist}`);
+    assert.equal(p.targets.length, 5);
+    for (const target of p.targets) {
+      assert.equal(Number.isFinite(target.x), true);
+      assert.equal(Number.isFinite(target.y), true);
+      assert.equal(Number.isFinite(target.z), true);
+    }
   }
 });
 
-test("spring return is unhurried and frame-rate independent (60Hz vs 120Hz)", () => {
-  const particles60 = createParticles(80);
-  const particles120 = createParticles(80);
-
-  const pointer: PointerState = {
-    x: CENTER,
-    y: CENTER,
-    vx: 0,
-    vy: 0,
-    active: true,
-  };
-
-  for (let i = 0; i < 18; i++) {
-    stepParticleField(particles60, pointer, i / 60, 1 / 60);
+test("createAmbientStars builds 280 background stars across normalized viewport", () => {
+  const stars = createAmbientStars();
+  assert.equal(stars.length, AMBIENT_STAR_COUNT);
+  for (const star of stars) {
+    assert.ok(star.nx >= 0 && star.nx <= 1);
+    assert.ok(star.ny >= 0 && star.ny <= 1);
+    assert.ok(star.alpha > 0 && star.alpha <= 1);
   }
-  for (let i = 0; i < 36; i++) {
-    stepParticleField(particles120, pointer, i / 120, 1 / 120);
+});
+
+test("getSceneAnchorConfig maps all 5 discrete scenes cleanly", () => {
+  assert.equal(getSceneAnchorConfig(0, false).stage, "rocket");
+  assert.equal(getSceneAnchorConfig(1, false).stage, "satellite");
+  assert.equal(getSceneAnchorConfig(2, false).stage, "globe");
+  assert.equal(getSceneAnchorConfig(3, false).stage, "gyroscope");
+  assert.equal(getSceneAnchorConfig(4, false).stage, "astronaut");
+});
+
+test("stepMorphParticles smoothly disperses mid-transition and settles onto target formation within ~900ms", () => {
+  const particles = createSpaceParticles(80);
+  const initialDist = particles.reduce(
+    (sum, p) =>
+      sum +
+      Math.hypot(
+        p.x - p.targets[4].x,
+        p.y - p.targets[4].y,
+        p.z - p.targets[4].z
+      ),
+    0
+  );
+
+  // Simulate 54 frames (~900ms at 60fps) morphing from Rocket (0) to Astronaut (4)
+  for (let frame = 0; frame < 54; frame++) {
+    const progress = Math.min(1, frame / 54);
+    stepMorphParticles(particles, 4, progress, frame / 60, 1 / 60, false);
+  }
+  // Extra 30 frames of post-scatter glide
+  for (let frame = 54; frame < 84; frame++) {
+    stepMorphParticles(particles, 4, 1, frame / 60, 1 / 60, false);
   }
 
-  const idle: PointerState = { x: -9999, y: -9999, vx: 0, vy: 0, active: false };
-  for (let i = 0; i < 15; i++) {
-    stepParticleField(particles60, idle, 0.3 + i / 60, 1 / 60);
-  }
-  for (let i = 0; i < 30; i++) {
-    stepParticleField(particles120, idle, 0.3 + i / 120, 1 / 120);
-  }
+  const settledDist = particles.reduce(
+    (sum, p) =>
+      sum +
+      Math.hypot(
+        p.x - p.targets[4].x,
+        p.y - p.targets[4].y,
+        p.z - p.targets[4].z
+      ),
+    0
+  );
 
-  const maxDisp60 = Math.max(...particles60.map((p) => Math.hypot(p.x - p.homeX, p.y - p.homeY)));
-  const maxDisp120 = Math.max(...particles120.map((p) => Math.hypot(p.x - p.homeX, p.y - p.homeY)));
-
-  assert.ok(maxDisp60 > 4, `expected slow unhurried return after 0.25s, got ${maxDisp60}`);
   assert.ok(
-    Math.abs(maxDisp60 - maxDisp120) < 3.5,
-    `60Hz (${maxDisp60.toFixed(2)}) and 120Hz (${maxDisp120.toFixed(2)}) should match closely`
+    settledDist < initialDist * 0.15,
+    `expected balanced smooth reassembly onto Astronaut (${settledDist} vs ${initialDist})`
   );
+});
+
+test("projectPoint3D scales closer Z points larger than farther Z points", () => {
+  const near = projectPoint3D(60, 0, -140, 0, 0, 720, 450, 1);
+  const far = projectPoint3D(60, 0, 140, 0, 0, 720, 450, 1);
+  assert.ok(near.perspective > far.perspective);
+  assert.ok(near.depthNorm > far.depthNorm);
 });

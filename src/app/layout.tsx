@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Inter, JetBrains_Mono } from "next/font/google";
+import { Outfit, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { BRAND_CONFIG } from "@/data/psyctech";
 import { AuthProvider } from "@/context/AuthContext";
 import { AuthModal } from "@/components/AuthModal";
+import { AmbientSpaceBackdrop } from "@/components/AmbientSpaceBackdrop";
 import { ScrollProgress } from "@/components/ui/scroll-progress";
 import "./globals.css";
 
-const inter = Inter({
+const outfit = Outfit({
   variable: "--font-heading",
   subsets: ["latin"],
   display: "swap",
@@ -64,10 +65,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} dark scroll-smooth`}
+      className={`${outfit.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} dark`}
     >
-      <body className="min-h-screen bg-[#162323] text-[#EFE7E4] font-sans antialiased selection:bg-[#BC806A]/25 selection:text-[#EFE7E4] overflow-x-clip">
+      <body className="min-h-screen bg-[#050507] text-white font-sans antialiased selection:bg-[#FB923C]/25 selection:text-white overflow-x-clip">
         <AuthProvider>
+          <AmbientSpaceBackdrop />
           <ScrollProgress />
           {children}
           <AuthModal />

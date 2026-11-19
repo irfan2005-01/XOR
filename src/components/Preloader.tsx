@@ -16,6 +16,12 @@ const subscribeStorage = (callback: () => void) => {
 
 const getClientSnapshot = () => {
   try {
+    if (
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("autostart") === "1"
+    ) {
+      return true;
+    }
     return sessionStorage.getItem(PRELOADED_KEY) === "true";
   } catch {
     return false;
@@ -53,16 +59,15 @@ export function Preloader({ onExitStart }: PreloaderProps) {
     let animFrame: number;
     let exitTriggered = false;
 
-    const fillDuration = 1250; // 1.25s smooth letter fill
-    const holdDuration = 160; // 160ms lock beat at 100%
-    const zoomDuration = 760; // 760ms exponential zoom-through centered on the O in XOR
+    const fillDuration = 1250;
+    const holdDuration = 160;
+    const zoomDuration = 760;
 
     const startTime = performance.now();
 
     const frame = (now: number) => {
       const elapsed = now - startTime;
 
-      // PHASE 1: Smooth Letter-Fill (0% -> 100%)
       if (elapsed < fillDuration) {
         const t = elapsed / fillDuration;
         const eased =
@@ -83,7 +88,6 @@ export function Preloader({ onExitStart }: PreloaderProps) {
         return;
       }
 
-      // PHASE 2: Crisp 160ms Lock Beat
       const postFill = elapsed - fillDuration;
       if (postFill < holdDuration) {
         if (fillTextRef.current) fillTextRef.current.style.clipPath = "none";
@@ -97,7 +101,6 @@ export function Preloader({ onExitStart }: PreloaderProps) {
         return;
       }
 
-      // PHASE 3: Exponential Zoom-Through Center of XOR ("O" Aperture)
       if (!exitTriggered) {
         exitTriggered = true;
         if (topBarRef.current) topBarRef.current.style.opacity = "0";
@@ -153,71 +156,71 @@ export function Preloader({ onExitStart }: PreloaderProps) {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 bg-[#162323] flex flex-col justify-between p-8 sm:p-12 select-none overflow-hidden"
+      className="fixed inset-0 z-50 bg-[#050507] flex flex-col justify-between p-8 sm:p-12 select-none overflow-hidden"
       style={{ willChange: "opacity" }}
     >
-      {/* Subtle Ambient Brick Rose Backlight */}
+      {/* Subtle Cosmic Light Orange & Sky Blue Radial Backlight */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(circle at 50% 50%, rgba(188, 128, 106, 0.12) 0%, rgba(22, 35, 35, 0) 52%)",
+            "radial-gradient(circle at 50% 50%, rgba(251, 146, 60, 0.11) 0%, rgba(56, 189, 248, 0.05) 35%, rgba(5, 5, 7, 0) 62%)",
         }}
         aria-hidden="true"
       />
 
-      {/* 1. Top Bar: Quiet Corner Metadata */}
+      {/* 1. Top Bar */}
       <div
         ref={topBarRef}
         className="relative z-10 w-full flex justify-between items-center"
       >
-        <span className="text-[11px] font-mono tracking-[0.25em] text-[#806B64] uppercase">
-          LAEC • BIDAR
+        <span className="text-[11px] font-mono tracking-[0.25em] text-[#FB923C] uppercase">
+          LAEC &bull; BIDAR
         </span>
-        <span className="text-[11px] font-mono tracking-[0.25em] text-[#806B64]">
+        <span className="text-[11px] font-mono tracking-[0.25em] text-[#38BDF8] tabular-nums">
           EST. {BRAND_CONFIG.estYear}
         </span>
       </div>
 
-      {/* 2. Center: Unified XOR Wordmark Zooming Through the Central O Aperture */}
+      {/* 2. Center: Unified XOR Wordmark */}
       <div className="relative z-10 flex-1 flex flex-col items-center justify-center overflow-visible">
         <div
           ref={wordmarkRef}
-          className="relative inline-block select-none text-center text-6xl sm:text-7xl md:text-8xl font-semibold tracking-[0.24em] pl-[0.24em] uppercase leading-none"
+          className="relative inline-block select-none text-center font-heading text-6xl sm:text-7xl md:text-8xl font-semibold tracking-[0.24em] pl-[0.24em] uppercase leading-none"
           style={{
             transformOrigin: "50% 50%",
             willChange: "transform, opacity",
             backfaceVisibility: "hidden",
           }}
         >
-          {/* Base Layer: Ghost Unfilled Text (#B59289 at 14%) */}
-          <span className="block text-[#B59289]/[0.14]" aria-hidden="true">
+          <span className="block text-white/[0.14]" aria-hidden="true">
             {brandText}
           </span>
 
-          {/* Foreground Layer: Luminous Sand-White Fill */}
           <span
             ref={fillTextRef}
-            className="absolute inset-0 block pl-[0.24em] text-[#EFE7E4]"
+            className="absolute inset-0 block pl-[0.24em] text-white"
             style={{ clipPath: "inset(0 100% 0 0)" }}
           >
             {brandText}
           </span>
         </div>
 
-        {/* Minimal Status & Counter */}
         <div
           ref={statusRef}
-          className="mt-6 flex items-center justify-center gap-3 font-mono text-xs tracking-[0.22em] text-[#BC806A]"
+          className="mt-6 flex items-center justify-center gap-3 font-mono text-xs tracking-[0.22em] text-white"
         >
-          <span className="lowercase">loading...</span>
-          <span ref={counterRef} className="tabular-nums font-medium">
+          <span className="lowercase text-[#A1A1AA]">loading...</span>
+          <span
+            ref={counterRef}
+            className="tabular-nums font-medium text-[#FB923C]"
+          >
             0%
           </span>
         </div>
       </div>
 
-      {/* 3. Bottom Spacer: Balances Top Bar */}
+      {/* 3. Bottom Spacer */}
       <div
         className="w-full h-[17px] opacity-0 pointer-events-none"
         aria-hidden="true"

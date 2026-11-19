@@ -4,7 +4,7 @@ import React, { useMemo, useRef, useState } from "react";
 import { getMemberInitials } from "@/lib/avatar-upload";
 import { computePassBarcodeBars, formatIssueDate } from "@/lib/member-id";
 import { buildQrMatrix } from "@/lib/qr-matrix";
-import type { PublicMember } from "@/types/portal";
+import { formatMemberRoleLabel, type PublicMember } from "@/types/portal";
 import { Camera, RotateCw, ShieldCheck } from "lucide-react";
 
 interface VirtualIdCardProps {
@@ -30,6 +30,7 @@ export function VirtualIdCard({
   const issueDate = useMemo(() => formatIssueDate(member.joinedAt), [member.joinedAt]);
   const initials = useMemo(() => getMemberInitials(member.fullName), [member.fullName]);
   const qrMatrix = useMemo(() => buildQrMatrix(member.id), [member.id]);
+  const roleLabel = useMemo(() => formatMemberRoleLabel(member.role), [member.role]);
 
   const barcodeGeometry = useMemo(() => {
     const rects: Array<{ x: number; width: number }> = [];
@@ -97,17 +98,17 @@ export function VirtualIdCard({
     <div className="w-full max-w-[340px] sm:max-w-[380px] mx-auto">
       {/* Interactive Flip Bar */}
       <div className="flex items-center justify-between gap-3 mb-3">
-        <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#806B64] truncate">
+        <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-[#A1A1AA] truncate">
           {isFlipped ? "Back · QR Verification" : "Front · Member Pass"}
         </span>
         <button
           type="button"
           onClick={toggleFlip}
           aria-pressed={isFlipped}
-          className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#1D2C2C] border border-[#484A43]/70 hover:border-[#BC806A] text-xs font-mono text-[#EFE7E4] transition-colors cursor-pointer whitespace-nowrap shrink-0"
+          className="min-h-[44px] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0D0E14]/80 backdrop-blur-md border border-white/15 hover:border-[#38BDF8]/60 hover:text-[#38BDF8] text-xs font-mono text-white transition-colors cursor-pointer whitespace-nowrap shrink-0"
         >
           <RotateCw
-            className={`w-3.5 h-3.5 text-[#BC806A] transition-transform duration-300 ${
+            className={`w-3.5 h-3.5 text-[#38BDF8] transition-transform duration-300 ${
               isFlipped ? "rotate-180" : ""
             }`}
             strokeWidth={1.75}
@@ -131,7 +132,7 @@ export function VirtualIdCard({
           onKeyDown={handleCardKeyDown}
           onPointerMove={handlePointerMove}
           onPointerLeave={handlePointerLeave}
-          className="cursor-pointer transition-transform duration-200 ease-out will-change-transform select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#BC806A] rounded-2xl"
+          className="cursor-pointer transition-transform duration-200 ease-out will-change-transform select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FB923C] rounded-2xl"
           style={{
             transform: `rotateX(${tilt.rotateX.toFixed(2)}deg) rotateY(${tilt.rotateY.toFixed(2)}deg)`,
           }}
@@ -146,22 +147,22 @@ export function VirtualIdCard({
           >
             {/* ==================== FRONT FACE ==================== */}
             <div
-              className="relative overflow-hidden rounded-2xl bg-[#1D2C2C] border border-[#BC806A]/65 p-4 sm:p-6 shadow-2xl max-w-full"
+              className="relative overflow-hidden rounded-2xl bg-[#0D0E14]/80 backdrop-blur-md border border-white/15 p-4 sm:p-6 shadow-2xl max-w-full"
               style={{
                 backfaceVisibility: "hidden",
                 WebkitBackfaceVisibility: "hidden",
               }}
             >
-              {/* Specular pointer-reactive Brick Rose sheen */}
+              {/* Specular pointer-reactive cosmic sheen */}
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 transition-opacity duration-300"
                 style={{
-                  background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(188, 128, 106, 0.16) 0%, rgba(29, 44, 44, 0) 58%)`,
+                  background: `radial-gradient(circle at ${tilt.glareX}% ${tilt.glareY}%, rgba(251, 146, 60, 0.14) 0%, rgba(56, 189, 248, 0.06) 36%, rgba(13, 14, 20, 0) 66%)`,
                 }}
               />
 
-              {/* Subtle Geometric "X" Architectural Watermark (#484A43 at 30%) */}
+              {/* Subtle Geometric "X" Architectural Watermark */}
               <svg
                 aria-hidden="true"
                 viewBox="0 0 220 220"
@@ -173,8 +174,8 @@ export function VirtualIdCard({
                   width="172"
                   height="184"
                   fill="none"
-                  stroke="#484A43"
-                  strokeOpacity="0.24"
+                  stroke="#FFFFFF"
+                  strokeOpacity="0.06"
                   strokeWidth="1.25"
                 />
                 <line
@@ -182,8 +183,8 @@ export function VirtualIdCard({
                   y1="30"
                   x2="176"
                   y2="190"
-                  stroke="#484A43"
-                  strokeOpacity="0.3"
+                  stroke="#FFFFFF"
+                  strokeOpacity="0.06"
                   strokeWidth="20"
                   strokeLinecap="butt"
                 />
@@ -192,27 +193,26 @@ export function VirtualIdCard({
                   y1="30"
                   x2="44"
                   y2="190"
-                  stroke="#484A43"
-                  strokeOpacity="0.3"
+                  stroke="#FFFFFF"
+                  strokeOpacity="0.04"
                   strokeWidth="20"
                   strokeLinecap="butt"
                 />
               </svg>
 
-              {/* Header: XOR • LAEC BIDAR + Role Pill */}
-              <div className="relative z-10 flex items-center justify-between gap-2.5 pb-4 border-b border-[#484A43]/60">
-                <div className="text-[11px] sm:text-xs font-semibold tracking-[0.18em] uppercase text-[#EFE7E4] whitespace-nowrap">
-                  XOR • LAEC BIDAR
+              {/* Header: XOR • LAEC BIDAR + Role Tag */}
+              <div className="relative z-10 flex items-center justify-between gap-2.5 pb-4 border-b border-white/15">
+                <div className="font-heading text-[11px] sm:text-xs font-semibold tracking-[0.2em] uppercase text-white whitespace-nowrap">
+                  XOR &bull; LAEC BIDAR
                 </div>
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#BC806A]/15 border border-[#BC806A]/55 text-[10px] sm:text-[11px] font-mono tracking-[0.14em] uppercase text-[#BC806A] whitespace-nowrap shrink-0">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#FB923C]/12 border border-[#FB923C]/45 text-[10px] sm:text-[11px] font-mono tracking-[0.14em] uppercase text-[#FB923C] whitespace-nowrap shrink-0">
                   <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" strokeWidth={1.75} />
-                  <span>{member.role}</span>
+                  <span>{roleLabel}</span>
                 </div>
               </div>
 
               {/* Member Portrait + Core Identity */}
               <div className="relative z-10 py-5 flex items-center gap-3.5 sm:gap-5">
-                {/* Framed rounded-square portrait (1.5px #BC806A border) */}
                 <div
                   onClick={
                     !showPhoto && onEmptyPortraitClick
@@ -227,9 +227,9 @@ export function VirtualIdCard({
                       ? "Click to upload profile photo"
                       : undefined
                   }
-                  className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-[#162323] border-[1.5px] border-[#BC806A] overflow-hidden flex items-center justify-center shrink-0 shadow-inner ${
+                  className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-[#050507] border border-white/15 overflow-hidden flex items-center justify-center shrink-0 ${
                     !showPhoto && onEmptyPortraitClick
-                      ? "hover:border-[#EFE7E4] transition-colors cursor-pointer group/portrait"
+                      ? "hover:border-[#38BDF8]/60 transition-colors cursor-pointer group/portrait"
                       : ""
                   }`}
                 >
@@ -247,12 +247,12 @@ export function VirtualIdCard({
                     <>
                       <span
                         aria-label={`${member.fullName} monogram`}
-                        className="text-lg sm:text-xl font-mono font-bold tracking-wider text-[#BC806A]"
+                        className="text-lg sm:text-xl font-mono font-bold tracking-wider text-white"
                       >
                         {initials}
                       </span>
                       {onEmptyPortraitClick && (
-                        <span className="absolute bottom-1 right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-[#1D2C2C]/90 border border-[#BC806A]/60 flex items-center justify-center text-[#BC806A] group-hover/portrait:text-[#EFE7E4]">
+                        <span className="absolute bottom-1 right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-[#0D0E14]/90 border border-[#38BDF8]/40 flex items-center justify-center text-[#38BDF8] group-hover/portrait:text-white">
                           <Camera className="w-2.5 h-2.5 sm:w-3 sm:h-3" strokeWidth={1.8} />
                         </span>
                       )}
@@ -261,22 +261,22 @@ export function VirtualIdCard({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#806B64]">
+                  <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#FB923C]">
                     Student Member
                   </div>
-                  <h2 className="text-base sm:text-xl font-semibold tracking-tight text-[#EFE7E4] mt-0.5 truncate">
+                  <h2 className="font-heading text-base sm:text-xl font-semibold tracking-tight text-white mt-0.5 truncate">
                     {member.fullName}
                   </h2>
-                  <p className="text-xs sm:text-sm text-[#B59289] mt-0.5 truncate">
+                  <p className="text-xs sm:text-sm text-[#A1A1AA] mt-0.5 truncate">
                     {member.branchSemester}
                   </p>
 
                   <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                     <div>
-                      <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#806B64] mr-1.5">
+                      <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-[#A1A1AA] mr-1.5">
                         USN
                       </span>
-                      <span className="text-xs font-mono font-medium text-[#EFE7E4] tabular-nums">
+                      <span className="text-xs font-mono font-medium text-white tabular-nums">
                         {member.usn}
                       </span>
                     </div>
@@ -285,24 +285,24 @@ export function VirtualIdCard({
               </div>
 
               {/* Footer: Monospace XOR-26-XXXX Badge + Tap Hint */}
-              <div className="relative z-10 pt-4 border-t border-[#484A43]/60 flex items-end justify-between gap-3">
+              <div className="relative z-10 pt-4 border-t border-white/15 flex items-end justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#806B64]">
+                  <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#A1A1AA]">
                     Unique Member ID
                   </div>
                   <div
                     data-testid="virtual-id-code"
-                    className="inline-block mt-1 px-2.5 py-1 rounded-md bg-[#162323] border border-[#BC806A]/55 text-base sm:text-lg font-mono font-bold tracking-[0.1em] text-[#BC806A] tabular-nums whitespace-nowrap"
+                    className="inline-block mt-1 px-2.5 py-1 rounded-md bg-[#050507] border border-[#38BDF8]/45 text-base sm:text-lg font-mono font-bold tracking-[0.1em] text-[#38BDF8] tabular-nums whitespace-nowrap"
                   >
                     {member.id}
                   </div>
                 </div>
 
                 <div className="text-right shrink-0">
-                  <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#806B64]">
+                  <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#FB923C]">
                     Tap for QR
                   </div>
-                  <div className="text-[10px] sm:text-[11px] font-mono text-[#B59289] mt-0.5 tabular-nums">
+                  <div className="text-[10px] sm:text-[11px] font-mono text-[#A1A1AA] mt-0.5 tabular-nums">
                     {issueDate}
                   </div>
                 </div>
@@ -311,36 +311,34 @@ export function VirtualIdCard({
 
             {/* ==================== BACK FACE ==================== */}
             <div
-              className="absolute inset-0 overflow-hidden rounded-2xl bg-[#1D2C2C] border border-[#BC806A]/65 p-4 sm:p-6 shadow-2xl flex flex-col justify-between max-w-full"
+              className="absolute inset-0 overflow-hidden rounded-2xl bg-[#0D0E14]/80 backdrop-blur-md border border-white/15 p-4 sm:p-6 shadow-2xl flex flex-col justify-between max-w-full"
               style={{
                 backfaceVisibility: "hidden",
                 WebkitBackfaceVisibility: "hidden",
                 transform: "rotateY(180deg)",
               }}
             >
-              {/* Specular pointer-reactive sheen */}
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 transition-opacity duration-300"
                 style={{
-                  background: `radial-gradient(circle at ${100 - tilt.glareX}% ${tilt.glareY}%, rgba(188, 128, 106, 0.16) 0%, rgba(29, 44, 44, 0) 58%)`,
+                  background: `radial-gradient(circle at ${100 - tilt.glareX}% ${tilt.glareY}%, rgba(56, 189, 248, 0.14) 0%, rgba(251, 146, 60, 0.05) 38%, rgba(13, 14, 20, 0) 64%)`,
                 }}
               />
 
               {/* Back Header */}
-              <div className="relative z-10 flex items-center justify-between gap-2.5 pb-3 border-b border-[#484A43]/60">
-                <div className="text-[10px] sm:text-[11px] font-mono tracking-[0.16em] uppercase text-[#BC806A] font-semibold">
+              <div className="relative z-10 flex items-center justify-between gap-2.5 pb-3 border-b border-white/15">
+                <div className="text-[10px] sm:text-[11px] font-mono tracking-[0.16em] uppercase text-[#FB923C] font-semibold">
                   PASS VERIFICATION
                 </div>
-                <div className="text-[10px] sm:text-[11px] font-mono text-[#B59289] tabular-nums">
+                <div className="text-[10px] sm:text-[11px] font-mono text-[#38BDF8] tabular-nums">
                   {member.id}
                 </div>
               </div>
 
               {/* Center: Scannable Vector QR Code + Verification Details */}
               <div className="relative z-10 my-auto py-2 flex items-center gap-3 sm:gap-5">
-                {/* Crisp Vector QR Code */}
-                <div className="p-1.5 sm:p-2 rounded-xl bg-[#162323] border border-[#BC806A]/60 shrink-0">
+                <div className="p-1.5 sm:p-2 rounded-xl bg-black border border-white/20 shrink-0">
                   <svg
                     role="img"
                     aria-label={`Scannable QR code for ${member.id}`}
@@ -353,7 +351,7 @@ export function VirtualIdCard({
                       y={-2}
                       width={qrMatrix.size + 4}
                       height={qrMatrix.size + 4}
-                      fill="#162323"
+                      fill="#000000"
                     />
                     {qrRects.map((cell, idx) => (
                       <rect
@@ -362,25 +360,24 @@ export function VirtualIdCard({
                         y={cell.y}
                         width={1}
                         height={1}
-                        fill="#EFE7E4"
+                        fill="#FFFFFF"
                       />
                     ))}
                   </svg>
                 </div>
 
-                {/* Metadata + Barcode */}
                 <div className="min-w-0 flex-1 space-y-2">
                   <div>
-                    <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#806B64]">
+                    <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#A1A1AA]">
                       ISSUED
                     </div>
-                    <div className="text-xs font-mono font-medium text-[#EFE7E4] mt-0.5 tabular-nums">
+                    <div className="text-xs font-mono font-medium text-white mt-0.5 tabular-nums">
                       {issueDate}
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#806B64] mb-0.5">
+                    <div className="text-[10px] font-mono tracking-[0.14em] uppercase text-[#A1A1AA] mb-0.5">
                       Verification Barcode
                     </div>
                     <svg
@@ -395,7 +392,7 @@ export function VirtualIdCard({
                           y={0}
                           width={rect.width}
                           height={32}
-                          fill="#EFE7E4"
+                          fill="#FFFFFF"
                           opacity={0.92}
                         />
                       ))}
@@ -405,11 +402,11 @@ export function VirtualIdCard({
               </div>
 
               {/* College Seal Footer */}
-              <div className="relative z-10 pt-3 border-t border-[#484A43]/60 flex items-center justify-between gap-2 text-[10px]">
-                <p className="font-mono tracking-[0.12em] uppercase text-[#B59289] truncate">
+              <div className="relative z-10 pt-3 border-t border-white/15 flex items-center justify-between gap-2 text-[10px]">
+                <p className="font-mono tracking-[0.12em] uppercase text-[#A1A1AA] truncate">
                   LAEC BIDAR &bull; VERIFIED PASS
                 </p>
-                <span className="font-mono text-[#806B64] whitespace-nowrap shrink-0">
+                <span className="font-mono text-[#FB923C] font-semibold whitespace-nowrap shrink-0">
                   XOR
                 </span>
               </div>

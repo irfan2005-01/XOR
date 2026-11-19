@@ -8,6 +8,7 @@ import { AuthForm } from "@/components/AuthForm";
 import { VirtualIdCard } from "@/components/VirtualIdCard";
 import { useAuth, type AuthModalMode } from "@/context/AuthContext";
 import { exportIdCardAsPng } from "@/lib/export-id-card";
+import { formatMemberRoleLabel, isClubLeadRole } from "@/types/portal";
 import { ArrowRight, Camera, Check, Download, KeyRound } from "lucide-react";
 
 export default function DashboardPage() {
@@ -92,30 +93,31 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#162323] text-[#EFE7E4]">
+    <div className="relative min-h-screen flex flex-col text-white selection:bg-[#FB923C]/25 selection:text-white">
       <Header />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16">
+      <main className="relative z-10 flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-16">
         {!isHydrated ? (
           <div className="max-w-[340px] sm:max-w-[380px] mx-auto space-y-6">
-            <div className="h-8 w-56 rounded-md bg-[#1D2C2C] animate-pulse" />
-            <div className="h-[320px] w-full rounded-2xl bg-[#1D2C2C] border border-[#484A43]/45 animate-pulse" />
+            <div className="h-8 w-56 rounded-md bg-[#0D0E14]/80 backdrop-blur-md animate-pulse" />
+            <div className="h-[320px] w-full rounded-2xl bg-[#0D0E14]/80 backdrop-blur-md border border-white/15 animate-pulse" />
           </div>
         ) : !user ? (
           <div className="max-w-md mx-auto">
             <div className="mb-8 text-center">
-              <p className="text-xs font-mono tracking-[0.2em] uppercase text-[#BC806A]">
+              <p className="text-xs font-mono tracking-[0.2em] uppercase text-[#FB923C] font-medium">
                 Virtual Member Pass
               </p>
-              <h1 className="text-2xl sm:text-3xl font-medium tracking-tight text-[#EFE7E4] mt-2">
+              <h1 className="font-heading text-2xl sm:text-3xl font-semibold tracking-tight text-white mt-2">
                 Claim Your XOR ID Card
               </h1>
-              <p className="text-sm text-[#B59289] mt-2 leading-relaxed">
-                Register with your LAEC Bidar details or sign in to view and download your official XOR-26 pass.
+              <p className="text-sm text-[#A1A1AA] mt-2 leading-relaxed">
+                Register with your LAEC Bidar details or sign in to view and download your official{" "}
+                <span className="font-mono text-[#38BDF8]">XOR-26</span> pass.
               </p>
             </div>
 
-            <div className="rounded-xl bg-[#1D2C2C] border border-[#484A43]/60 p-5 sm:p-8">
+            <div className="rounded-xl bg-[#0D0E14]/80 backdrop-blur-md border border-white/15 p-5 sm:p-8 shadow-2xl">
               <AuthForm mode={authMode} onModeChange={setAuthMode} />
             </div>
           </div>
@@ -132,15 +134,18 @@ export default function DashboardPage() {
 
             <div className="w-full max-w-[340px] sm:max-w-[380px] mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-2.5">
               <div>
-                <p className="text-xs font-mono tracking-[0.2em] uppercase text-[#BC806A]">
-                  My ID Card · LAEC Bidar
+                <p className="text-xs font-mono tracking-[0.2em] uppercase text-[#FB923C] font-medium">
+                  My ID Card &middot; LAEC Bidar
                 </p>
-                <h1 className="text-2xl sm:text-3xl font-medium tracking-tight text-[#EFE7E4] mt-1">
+                <h1 className="font-heading text-2xl sm:text-3xl font-semibold tracking-tight text-white mt-1">
                   Welcome, {user.fullName.split(" ")[0]}
                 </h1>
               </div>
-              <span className="text-xs font-mono text-[#806B64] tabular-nums">
-                {user.id} · {user.role}
+              <span className="text-xs font-mono text-[#38BDF8] tabular-nums">
+                {user.id} &middot;{" "}
+                <span className="text-[#FB923C]">
+                  {formatMemberRoleLabel(user.role)}
+                </span>
               </span>
             </div>
 
@@ -150,21 +155,30 @@ export default function DashboardPage() {
             />
 
             {(photoError || downloadError) && (
-              <div role="alert" className="mt-4 px-3.5 py-2 rounded-lg bg-[#BC806A]/15 border border-[#BC806A]/50 text-xs text-[#EFE7E4] max-w-[340px] sm:max-w-[380px] w-full text-center">
+              <div
+                role="alert"
+                className="mt-4 px-3.5 py-2 rounded-lg bg-white/10 border border-white/35 text-xs text-white max-w-[340px] sm:max-w-[380px] w-full text-center"
+              >
                 {photoError ?? downloadError}
               </div>
             )}
 
             {photoUpdated && (
-              <div role="status" className="mt-4 px-3.5 py-2 rounded-lg bg-[#BC806A]/20 border border-[#BC806A]/60 text-xs text-[#EFE7E4] flex items-center justify-center gap-2 max-w-[340px] sm:max-w-[380px] w-full">
-                <Check className="w-3.5 h-3.5 text-[#BC806A]" />
+              <div
+                role="status"
+                className="mt-4 px-3.5 py-2 rounded-lg bg-white/10 border border-white/35 text-xs text-white flex items-center justify-center gap-2 max-w-[340px] sm:max-w-[380px] w-full"
+              >
+                <Check className="w-3.5 h-3.5 text-white" />
                 <span>Profile photo updated successfully!</span>
               </div>
             )}
 
             {downloaded && (
-              <div role="status" className="mt-4 px-3.5 py-2 rounded-lg bg-[#BC806A]/20 border border-[#BC806A]/60 text-xs text-[#EFE7E4] flex items-center justify-center gap-2 max-w-[340px] sm:max-w-[380px] w-full">
-                <Check className="w-3.5 h-3.5 text-[#BC806A]" />
+              <div
+                role="status"
+                className="mt-4 px-3.5 py-2 rounded-lg bg-white/10 border border-white/35 text-xs text-white flex items-center justify-center gap-2 max-w-[340px] sm:max-w-[380px] w-full"
+              >
+                <Check className="w-3.5 h-3.5 text-white" />
                 <span>XOR member pass exported successfully as 2x PNG!</span>
               </div>
             )}
@@ -176,20 +190,22 @@ export default function DashboardPage() {
                   type="button"
                   onClick={openPhotoPicker}
                   disabled={uploadingPhoto}
-                  className="min-h-[44px] bg-[#1D2C2C] hover:bg-[#243737] disabled:opacity-70 text-[#EFE7E4] border border-[#484A43] hover:border-[#BC806A]/70 font-medium py-2.5 px-3.5 rounded-lg text-xs sm:text-sm transition-colors cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap"
+                  className="min-h-[44px] bg-[#0D0E14]/80 backdrop-blur-md hover:border-[#38BDF8]/60 disabled:opacity-70 text-white border border-white/15 font-medium py-2.5 px-3.5 rounded-lg text-xs sm:text-sm transition-colors cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap"
                 >
                   {photoUpdated ? (
                     <>
-                      <Check className="w-4 h-4 text-[#BC806A]" strokeWidth={1.75} />
+                      <Check className="w-4 h-4 text-[#38BDF8]" strokeWidth={1.75} />
                       <span>Photo Updated</span>
                     </>
                   ) : (
                     <>
-                      <Camera className="w-4 h-4 text-[#BC806A]" strokeWidth={1.75} />
+                      <Camera className="w-4 h-4 text-[#38BDF8]" strokeWidth={1.75} />
                       <span>
                         {uploadingPhoto
                           ? "Uploading Photo..."
-                          : "Change Photo"}
+                          : user.avatarUrl
+                            ? "Change Photo"
+                            : "Upload Photo"}
                       </span>
                     </>
                   )}
@@ -199,16 +215,16 @@ export default function DashboardPage() {
                   type="button"
                   onClick={handleDownload}
                   disabled={downloading}
-                  className="min-h-[44px] bg-[#1D2C2C] hover:bg-[#243737] disabled:opacity-70 text-[#EFE7E4] border border-[#484A43] hover:border-[#BC806A]/70 font-medium py-2.5 px-3.5 rounded-lg text-xs sm:text-sm transition-colors cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap"
+                  className="min-h-[44px] bg-[#0D0E14]/80 backdrop-blur-md hover:border-[#38BDF8]/60 disabled:opacity-70 text-white border border-white/15 font-medium py-2.5 px-3.5 rounded-lg text-xs sm:text-sm transition-colors cursor-pointer inline-flex items-center justify-center gap-2 whitespace-nowrap"
                 >
                   {downloaded ? (
                     <>
-                      <Check className="w-4 h-4 text-[#BC806A]" strokeWidth={1.75} />
+                      <Check className="w-4 h-4 text-[#38BDF8]" strokeWidth={1.75} />
                       <span>Downloaded PNG</span>
                     </>
                   ) : (
                     <>
-                      <Download className="w-4 h-4 text-[#BC806A]" strokeWidth={1.75} />
+                      <Download className="w-4 h-4 text-[#FB923C]" strokeWidth={1.75} />
                       <span>{downloading ? "Exporting..." : "Download ID Card"}</span>
                     </>
                   )}
@@ -217,26 +233,26 @@ export default function DashboardPage() {
 
               <Link
                 href="/community"
-                className="w-full min-h-[44px] bg-[#BC806A] hover:bg-[#C9917D] text-[#162323] font-semibold py-2.5 px-5 rounded-lg text-sm transition-colors inline-flex items-center justify-center gap-2 group whitespace-nowrap"
+                className="w-full min-h-[44px] bg-[#FB923C] text-[#050507] hover:bg-[#FDBA74] font-semibold py-2.5 px-5 rounded-lg text-sm transition-colors inline-flex items-center justify-center gap-2 group whitespace-nowrap"
               >
                 <span>Enter Community</span>
                 <ArrowRight
                   className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
-                  strokeWidth={1.75}
+                  strokeWidth={1.8}
                 />
               </Link>
             </div>
 
-            {/* Subtle Optional Club Lead Passcode Activation */}
-            {user.role === "MEMBER" && (
-              <div className="w-full max-w-[340px] sm:max-w-[380px] mt-8 pt-6 border-t border-[#484A43]/40">
+            {/* Optional Club Lead Passcode Activation */}
+            {!isClubLeadRole(user.role) && (
+              <div className="w-full max-w-[340px] sm:max-w-[380px] mt-8 pt-6 border-t border-white/15">
                 {!showLeadUnlock ? (
                   <button
                     type="button"
                     onClick={() => setShowLeadUnlock(true)}
-                    className="text-xs font-mono text-[#806B64] hover:text-[#B59289] transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                    className="text-xs font-mono text-[#A1A1AA] hover:text-[#FB923C] transition-colors inline-flex items-center gap-1.5 cursor-pointer"
                   >
-                    <KeyRound className="w-3.5 h-3.5 text-[#BC806A]" strokeWidth={1.5} />
+                    <KeyRound className="w-3.5 h-3.5 text-[#FB923C]" strokeWidth={1.5} />
                     <span>Are you a Club Lead? Activate posting access</span>
                   </button>
                 ) : (
@@ -249,13 +265,13 @@ export default function DashboardPage() {
                       value={passcode}
                       onChange={(e) => setPasscode(e.target.value)}
                       placeholder="Enter Lead Passcode"
-                      className="flex-1 px-3 py-2 rounded-lg bg-[#1D2C2C] border border-[#484A43]/70 text-xs font-mono text-[#EFE7E4] placeholder:text-[#806B64]/70 focus:outline-none focus:border-[#BC806A]"
+                      className="flex-1 px-3 py-2 rounded-lg bg-[#0D0E14]/80 backdrop-blur-md border border-white/15 text-xs font-mono uppercase text-white placeholder:text-[#A1A1AA]/60 focus:outline-none focus:border-[#FB923C]"
                     />
                     <div className="flex items-center gap-2">
                       <button
                         type="submit"
                         disabled={unlocking}
-                        className="px-4 py-2 rounded-lg bg-[#BC806A] disabled:opacity-70 text-[#162323] text-xs font-semibold cursor-pointer whitespace-nowrap"
+                        className="px-4 py-2 rounded-lg bg-[#FB923C] hover:bg-[#FDBA74] disabled:opacity-70 text-[#050507] text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors"
                       >
                         {unlocking ? "Activating..." : "Activate Lead"}
                       </button>
@@ -265,7 +281,7 @@ export default function DashboardPage() {
                           setShowLeadUnlock(false);
                           setUnlockError(null);
                         }}
-                        className="px-3 py-2 rounded-lg text-xs text-[#B59289] hover:text-[#EFE7E4] cursor-pointer"
+                        className="px-3 py-2 rounded-lg text-xs text-[#A1A1AA] hover:text-white cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -273,7 +289,7 @@ export default function DashboardPage() {
                   </form>
                 )}
                 {unlockError && (
-                  <p className="text-xs text-[#BC806A] mt-2">{unlockError}</p>
+                  <p className="text-xs text-white/90 mt-2">{unlockError}</p>
                 )}
               </div>
             )}

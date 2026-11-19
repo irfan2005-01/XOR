@@ -1,7 +1,7 @@
 import { getMemberInitials } from "@/lib/avatar-upload";
 import { computePassBarcodeBars, formatIssueDate } from "@/lib/member-id";
 import { buildQrMatrix } from "@/lib/qr-matrix";
-import type { PublicMember } from "@/types/portal";
+import { formatMemberRoleLabel, type PublicMember } from "@/types/portal";
 
 function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
@@ -30,7 +30,6 @@ interface LoadedAvatar {
 }
 
 async function loadAvatarImage(url: string): Promise<LoadedAvatar | null> {
-  // If the image is already a data URI or local blob, load directly
   if (url.startsWith("data:") || url.startsWith("blob:")) {
     return await new Promise((resolve) => {
       const img = new Image();
@@ -60,7 +59,6 @@ async function loadAvatarImage(url: string): Promise<LoadedAvatar | null> {
       img.src = blobUrl;
     });
   } catch {
-    // Fallback direct load attempt
     return await new Promise<LoadedAvatar | null>((resolve) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
@@ -73,7 +71,8 @@ async function loadAvatarImage(url: string): Promise<LoadedAvatar | null> {
 
 /**
  * Renders the member's Virtual XOR ID Card at 2x resolution (2080x1280)
- * including student portrait, Brick Rose frame, XOR-26-XXXX badge,
+ * in the monochrome Deep Space palette (#0A0A0E surface, border-white/20, #FFFFFF text,
+ * white-on-black monogram fallback) including the proxied student portrait,
  * scannable QR code, and verification barcode, then triggers a PNG download.
  */
 export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
@@ -91,36 +90,41 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
 
   ctx.scale(scale, scale);
 
-  // Outer card background (#1D2C2C Petroleum Surface)
+  // Outer card background (#0D0E14 Elevated Obsidian Surface)
   drawRoundedRect(ctx, 0, 0, logicalWidth, logicalHeight, 32);
-  ctx.fillStyle = "#1D2C2C";
+  ctx.fillStyle = "#0D0E14";
   ctx.fill();
 
-  // Subtle ambient Brick Rose highlight
-  const radial = ctx.createRadialGradient(840, 140, 20, 840, 140, 520);
-  radial.addColorStop(0, "rgba(188, 128, 106, 0.16)");
-  radial.addColorStop(1, "rgba(29, 44, 44, 0)");
+  // Subtle ambient Light Orange & Electric Sky highlight
+  const radial = ctx.createRadialGradient(840, 140, 20, 840, 140, 540);
+  radial.addColorStop(0, "rgba(251, 146, 60, 0.12)");
+  radial.addColorStop(0.5, "rgba(56, 189, 248, 0.05)");
+  radial.addColorStop(1, "rgba(13, 14, 20, 0)");
   ctx.fillStyle = radial;
   ctx.fillRect(0, 0, logicalWidth, logicalHeight);
 
-  // Crisp Geometric 'X' Architectural Watermark in #484A43 at 30% opacity
+  // Subtle Geometric 'X' Architectural Watermark
   ctx.save();
   const wmCenterX = 835;
   const wmCenterY = 305;
   const wmSpanX = 130;
   const wmSpanY = 148;
 
-  ctx.strokeStyle = "rgba(72, 74, 67, 0.30)";
   ctx.lineWidth = 34;
   ctx.lineCap = "butt";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
   ctx.beginPath();
   ctx.moveTo(wmCenterX - wmSpanX, wmCenterY - wmSpanY);
   ctx.lineTo(wmCenterX + wmSpanX, wmCenterY + wmSpanY);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+  ctx.beginPath();
   ctx.moveTo(wmCenterX + wmSpanX, wmCenterY - wmSpanY);
   ctx.lineTo(wmCenterX - wmSpanX, wmCenterY + wmSpanY);
   ctx.stroke();
 
-  ctx.strokeStyle = "rgba(72, 74, 67, 0.25)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
   ctx.lineWidth = 2;
   ctx.strokeRect(
     wmCenterX - wmSpanX - 24,
@@ -130,14 +134,14 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
   );
   ctx.restore();
 
-  // Brick Rose Border Accent
+  // Outer Hairline Rim (border-white/20)
   drawRoundedRect(ctx, 2, 2, logicalWidth - 4, logicalHeight - 4, 30);
-  ctx.strokeStyle = "rgba(188, 128, 106, 0.65)";
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+  ctx.lineWidth = 2.5;
   ctx.stroke();
 
   // Top divider line
-  ctx.strokeStyle = "rgba(72, 74, 67, 0.65)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(56, 118);
@@ -145,23 +149,23 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
   ctx.stroke();
 
   // Header Left: XOR • LAEC BIDAR
-  ctx.fillStyle = "#EFE7E4";
-  ctx.font = "600 24px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "600 24px 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif";
   ctx.fillText("XOR  •  LAEC BIDAR", 56, 78);
 
-  // Header Right: Role Pill (CLUB LEAD / MEMBER)
+  // Header Right: Role Tag
   ctx.font = "600 18px 'JetBrains Mono', monospace";
-  const roleText = member.role;
+  const roleText = formatMemberRoleLabel(member.role);
   const badgeMetrics = ctx.measureText(roleText);
   const badgeW = badgeMetrics.width + 40;
   const badgeX = logicalWidth - 56 - badgeW;
   drawRoundedRect(ctx, badgeX, 46, badgeW, 44, 8);
-  ctx.fillStyle = "rgba(188, 128, 106, 0.14)";
+  ctx.fillStyle = "rgba(251, 146, 60, 0.14)";
   ctx.fill();
-  ctx.strokeStyle = "rgba(188, 128, 106, 0.6)";
+  ctx.strokeStyle = "rgba(251, 146, 60, 0.5)";
   ctx.lineWidth = 1.5;
   ctx.stroke();
-  ctx.fillStyle = "#BC806A";
+  ctx.fillStyle = "#FB923C";
   ctx.fillText(roleText, badgeX + 20, 74);
 
   // Framed Rounded-Square Portrait (left side of body)
@@ -171,7 +175,7 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
 
   ctx.save();
   drawRoundedRect(ctx, avatarX, avatarY, avatarSize, avatarSize, 22);
-  ctx.fillStyle = "#162323";
+  ctx.fillStyle = "#000000";
   ctx.fill();
   ctx.clip();
 
@@ -197,7 +201,7 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
         avatarSize
       );
     } else {
-      ctx.fillStyle = "#BC806A";
+      ctx.fillStyle = "#FFFFFF";
       ctx.font = "700 62px 'JetBrains Mono', monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -216,33 +220,33 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
   }
   ctx.restore();
 
-  // 1.5px Brick Rose Frame around Portrait
+  // Subtle border-white/25 Portrait Frame
   drawRoundedRect(ctx, avatarX, avatarY, avatarSize, avatarSize, 22);
-  ctx.strokeStyle = "#BC806A";
-  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+  ctx.lineWidth = 2;
   ctx.stroke();
 
   // Member Details to the right of portrait
   const infoX = 278;
 
-  ctx.fillStyle = "#806B64";
+  ctx.fillStyle = "#A1A1AA";
   ctx.font = "500 16px 'JetBrains Mono', monospace";
   ctx.fillText("STUDENT MEMBER", infoX, 184);
 
-  ctx.fillStyle = "#EFE7E4";
-  ctx.font = "600 42px 'Plus Jakarta Sans', system-ui, sans-serif";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "600 42px 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif";
   ctx.fillText(member.fullName, infoX, 236, 480);
 
-  ctx.fillStyle = "#B59289";
+  ctx.fillStyle = "#A1A1AA";
   ctx.font = "500 22px 'Plus Jakarta Sans', system-ui, sans-serif";
   ctx.fillText(member.branchSemester, infoX, 276, 480);
 
-  ctx.fillStyle = "#806B64";
+  ctx.fillStyle = "#A1A1AA";
   ctx.font = "500 15px 'JetBrains Mono', monospace";
   ctx.fillText("COLLEGE USN", infoX, 326);
   ctx.fillText("ISSUED", infoX + 230, 326);
 
-  ctx.fillStyle = "#EFE7E4";
+  ctx.fillStyle = "#FFFFFF";
   ctx.font = "600 20px 'JetBrains Mono', monospace";
   ctx.fillText(member.usn, infoX, 356);
   ctx.fillText(formatIssueDate(member.joinedAt), infoX + 230, 356);
@@ -254,15 +258,15 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
   const qrBoxY = 158;
 
   drawRoundedRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 18);
-  ctx.fillStyle = "#162323";
+  ctx.fillStyle = "#000000";
   ctx.fill();
-  ctx.strokeStyle = "rgba(188, 128, 106, 0.55)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
   ctx.lineWidth = 2;
   ctx.stroke();
 
   const qrPad = 18;
   const cellSize = (qrBoxSize - qrPad * 2) / qr.size;
-  ctx.fillStyle = "#EFE7E4";
+  ctx.fillStyle = "#FFFFFF";
   for (let r = 0; r < qr.size; r++) {
     for (let c = 0; c < qr.size; c++) {
       if (qr.isDark(r, c)) {
@@ -277,7 +281,7 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
   }
 
   // Bottom Divider
-  ctx.strokeStyle = "rgba(72, 74, 67, 0.65)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(56, 428);
@@ -285,23 +289,23 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
   ctx.stroke();
 
   // Prominent Unique ID (XOR-26-XXXX)
-  ctx.fillStyle = "#806B64";
+  ctx.fillStyle = "#A1A1AA";
   ctx.font = "500 15px 'JetBrains Mono', monospace";
   ctx.fillText("UNIQUE MEMBER ID", 56, 470);
 
   drawRoundedRect(ctx, 56, 486, 310, 68, 12);
-  ctx.fillStyle = "#162323";
+  ctx.fillStyle = "#050507";
   ctx.fill();
-  ctx.strokeStyle = "rgba(188, 128, 106, 0.55)";
+  ctx.strokeStyle = "rgba(56, 189, 248, 0.5)";
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  ctx.fillStyle = "#BC806A";
+  ctx.fillStyle = "#38BDF8";
   ctx.font = "700 36px 'JetBrains Mono', monospace";
   ctx.fillText(member.id, 78, 533);
 
   // College Seal
-  ctx.fillStyle = "#B59289";
+  ctx.fillStyle = "#A1A1AA";
   ctx.font = "500 14px 'JetBrains Mono', monospace";
   ctx.fillText("LINGARAJ APPA ENGINEERING COLLEGE, BIDAR", 56, 594);
 
@@ -313,14 +317,14 @@ export async function exportIdCardAsPng(member: PublicMember): Promise<void> {
   const barY = 486;
   const barHeight = 64;
 
-  ctx.fillStyle = "#EFE7E4";
+  ctx.fillStyle = "#FFFFFF";
   for (let i = 0; i < bars.length; i++) {
     const bw = bars[i] * unit;
     ctx.fillRect(cursorX, barY, bw, barHeight);
     cursorX += bw + unit;
   }
 
-  ctx.fillStyle = "#806B64";
+  ctx.fillStyle = "#FB923C";
   ctx.font = "500 13px 'JetBrains Mono', monospace";
   ctx.textAlign = "right";
   ctx.fillText("VERIFIED CAMPUS PASS", logicalWidth - 56, 594);

@@ -16,7 +16,12 @@ function createDummyAvatarFile(name = "avatar.jpg"): File {
 }
 
 function createMockAppwrite() {
-  const authUsers: Array<{ $id: string; email: string; password: string; name: string }> = [];
+  const authUsers: Array<{
+    $id: string;
+    email: string;
+    password: string;
+    name: string;
+  }> = [];
   let activeAuthUserId: string | null = null;
   let seq = 0;
 
@@ -56,7 +61,9 @@ function createMockAppwrite() {
       return { $id: user.$id };
     },
     async createEmailPasswordSession(email, password) {
-      const match = authUsers.find((u) => u.email === email && u.password === password);
+      const match = authUsers.find(
+        (u) => u.email === email && u.password === password
+      );
       if (!match) {
         const err = new Error("Invalid credentials") as Error & {
           code: number;
@@ -115,7 +122,9 @@ function createMockAppwrite() {
       return { total: filtered.length, documents: filtered };
     },
     async getDocument(_databaseId, collectionId, documentId) {
-      const doc = (collections.get(collectionId) ?? []).find((d) => d.$id === documentId);
+      const doc = (collections.get(collectionId) ?? []).find(
+        (d) => d.$id === documentId
+      );
       if (!doc) throw new Error("Document not found");
       return { ...doc };
     },
@@ -174,21 +183,27 @@ function createMockAppwrite() {
 }
 
 describe("portalService (Appwrite-backed)", () => {
-  it("requires a profile photo on sign-up, uploads to Appwrite Storage, saves avatarUrl, and restores session", async () => {
+  it("allows optional profile photo sign-up (avatarUrl: '') and optional Storage upload when photo is provided", async () => {
     const mock = createMockAppwrite();
     const service = createPortalService(mock.deps);
 
-    await assert.rejects(
-      service.signUpMember({
-        fullName: "Missing Photo",
-        usn: "3LA24CS001",
-        branchSemester: "CSE • 5th Sem",
-        email: "nophoto@laec.edu",
-        password: "password123",
-      }),
-      /upload a profile photo/i
-    );
+    // 1. Register immediately without selecting a photo
+    const memberNoPhoto = await service.signUpMember({
+      fullName: "No Photo Builder",
+      usn: "3LA24CS001",
+      branchSemester: "Computer Science & Engineering (CSE)",
+      email: "nophoto@laec.edu",
+      password: "password123",
+    });
 
+    assert.match(memberNoPhoto.id, /^XOR-26-\d{4}$/);
+    assert.equal(memberNoPhoto.role, "member");
+    assert.equal(memberNoPhoto.avatarUrl, "");
+    assert.equal(mock.uploadedFiles.size, 0);
+
+    await service.logoutMember();
+
+    // 2. Register WITH an optional photo
     const member = await service.signUpMember({
       fullName: "Ayaan Kulkarni",
       usn: "3la24cs014",
@@ -200,11 +215,14 @@ describe("portalService (Appwrite-backed)", () => {
 
     assert.match(member.id, /^XOR-26-\d{4}$/);
     assert.equal(member.usn, "3LA24CS014");
-    assert.equal(member.role, "MEMBER");
+    assert.equal(member.role, "member");
     assert.ok(member.userId);
-    assert.match(member.avatarUrl ?? "", /\/storage\/buckets\/avatars\/files\/.+\/view/);
+    assert.match(
+      member.avatarUrl ?? "",
+      /\/storage\/buckets\/avatars\/files\/.+\/view/
+    );
     assert.equal(mock.uploadedFiles.size, 1);
-    assert.equal(await service.getMemberCount(), 1);
+    assert.equal(await service.getMemberCount(), 2);
 
     const session = await service.getCurrentSession();
     assert.equal(session?.id, member.id);
@@ -221,6 +239,39 @@ describe("portalService (Appwrite-backed)", () => {
     assert.match(loggedIn.avatarUrl ?? "", /\?project=6afd778d001cf7bb0d79$/);
   });
 
+  it("supports case-insensitive trimmed XOR-LEAD-26 passcode on sign-up and returns active leads via getClubLeads", async () => {
+    const mock = createMockAppwrite();
+    const service = createPortalService(mock.deps);
+
+    const lead = await service.signUpMember({
+      fullName: "Fatima Mirza",
+      usn: "3LA24CS021",
+      branchSemester: "CSE • 6th Sem",
+      email: "fatima@laec.edu",
+      password: "password123",
+      wantsLeadRole: true,
+      leadPasscode: "  xor-lead-26  ",
+    });
+
+    assert.equal(lead.role, "lead");
+    assert.equal(lead.avatarUrl, "");
+
+    const regular = await service.signUpMember({
+      fullName: "Kiran Rao",
+      usn: "3LA24EC022",
+      branchSemester: "ECE • 4th Sem",
+      email: "kiran@laec.edu",
+      password: "password123",
+      wantsLeadRole: false,
+    });
+    assert.equal(regular.role, "member");
+
+    const leads = await service.getClubLeads();
+    assert.equal(leads.length, 1);
+    assert.equal(leads[0].fullName, "Fatima Mirza");
+    assert.equal(leads[0].role, "lead");
+  });
+
   it("updates profile photo for an existing or legacy member via updateMemberAvatar and ensures project query param", async () => {
     const mock = createMockAppwrite();
     let compressedCalled = false;
@@ -232,7 +283,6 @@ describe("portalService (Appwrite-backed)", () => {
       },
     });
 
-    // Seed a legacy member record without avatarUrl
     const legacyDoc = await mock.deps.databases.createDocument(
       "test_db",
       "members",
@@ -256,7 +306,7 @@ describe("portalService (Appwrite-backed)", () => {
 
     assert.equal(compressedCalled, true);
     assert.equal(updated.docId, "legacy_doc_1");
-    assert.equal(updated.role, "CLUB LEAD");
+    assert.equal(updated.role, "lead");
     assert.match(
       updated.avatarUrl ?? "",
       /^https:\/\/sgp\.cloud\.appwrite\.io\/v1\/storage\/buckets\/avatars\/files\/.+\/view\?project=6afd778d001cf7bb0d79$/
@@ -274,7 +324,6 @@ describe("portalService (Appwrite-backed)", () => {
       branchSemester: "ECE • 5th Sem",
       email: "neha@laec.edu",
       password: "secret990",
-      avatarFile: createDummyAvatarFile(),
     });
 
     await assert.rejects(
@@ -284,7 +333,6 @@ describe("portalService (Appwrite-backed)", () => {
         branchSemester: "ECE • 5th Sem",
         email: "neha@laec.edu",
         password: "secret990",
-        avatarFile: createDummyAvatarFile(),
       }),
       /already exists/i
     );
@@ -296,7 +344,6 @@ describe("portalService (Appwrite-backed)", () => {
         branchSemester: "ECE • 5th Sem",
         email: "other@laec.edu",
         password: "secret990",
-        avatarFile: createDummyAvatarFile(),
       }),
       /USN is already registered/i
     );
@@ -308,7 +355,6 @@ describe("portalService (Appwrite-backed)", () => {
         branchSemester: "AI & ML • 3rd Sem",
         email: "rohan@laec.edu",
         password: "secret990",
-        avatarFile: createDummyAvatarFile(),
         wantsLeadRole: true,
         leadPasscode: "WRONG",
       }),
@@ -329,10 +375,8 @@ describe("portalService (Appwrite-backed)", () => {
       branchSemester: "CSE • 5th Sem",
       email: "zainab@laec.edu",
       password: "password123",
-      avatarFile: createDummyAvatarFile(),
     });
 
-    // Regular member cannot send broadcasts
     await assert.rejects(
       service.createAnnouncement(
         {
@@ -345,11 +389,12 @@ describe("portalService (Appwrite-backed)", () => {
       /Only Club Leads/i
     );
 
-    // Upgrade to Club Lead
-    const lead = await service.upgradeToClubLead(member.userId, CLUB_LEAD_PASSCODE);
-    assert.equal(lead.role, "CLUB LEAD");
+    const lead = await service.upgradeToClubLead(
+      member.userId,
+      " xor-lead-26 "
+    );
+    assert.equal(lead.role, "lead");
 
-    // Create an Announcement without Date or Venue
     const afterFirst = await service.createAnnouncement(
       {
         title: "Welcome to XOR Channel",
@@ -367,7 +412,6 @@ describe("portalService (Appwrite-backed)", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 2));
 
-    // Create an Event Pitch with optional Date & Venue
     const afterSecond = await service.createAnnouncement(
       {
         title: "Campus Systems Hackathon Pitch",
@@ -385,7 +429,6 @@ describe("portalService (Appwrite-backed)", () => {
     assert.equal(afterSecond[1].dateTime, "Sat, 12 Dec 2026 · 10:00 AM");
     assert.equal(afterSecond[1].venue, "Main Auditorium, LAEC Bidar");
 
-    // Toggle interest reaction using student's userId
     const eventId = afterSecond[1].id;
     const afterInterested = await service.toggleRsvp(eventId, member.userId);
     const interestedEvent = afterInterested.find((a) => a.id === eventId);
@@ -395,13 +438,11 @@ describe("portalService (Appwrite-backed)", () => {
     const uninterestedEvent = afterUninterested.find((a) => a.id === eventId);
     assert.deepEqual(uninterestedEvent?.rsvpMemberIds, []);
 
-    // Regular member cannot delete broadcasts
     await assert.rejects(
       service.deleteAnnouncement(eventId, member),
       /Only Club Leads/i
     );
 
-    // Club Lead can delete individual broadcasts or clear the channel
     const afterDeleteOne = await service.deleteAnnouncement(eventId, lead);
     assert.equal(afterDeleteOne.length, 1);
     assert.equal(afterDeleteOne[0].title, "Welcome to XOR Channel");

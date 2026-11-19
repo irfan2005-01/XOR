@@ -2,244 +2,385 @@
 
 import React, { useEffect, useRef } from "react";
 import {
-  CENTER,
-  LOGICAL_SIZE,
-  PARTICLE_COUNT,
-  PARTICLE_PALETTE,
-  X_HALF_HEIGHT,
-  X_SLOPE,
-  X_STROKE_HALF_WIDTH,
-  createParticles,
-  stepParticleField,
-  type PointerState,
+  AMBIENT_STAR_COUNT,
+  COSMIC_PALETTE_RGB,
+  createAmbientStars,
+  createSpaceParticles,
+  getParticleBudget,
+  getSceneAnchorConfig,
+  projectPoint3D,
+  stepMorphParticles,
+  type AmbientStar,
+  type SpaceParticle,
 } from "@/lib/particle-physics";
+import {
+  PARTICLE_MORPH_DURATION_MS,
+  PARTICLE_MORPH_LERP_60FPS,
+  SCENE_META,
+  clampSceneIndex,
+  getMorphLerpFactor,
+  getMorphTransitionProgress,
+} from "@/lib/stage-controller";
 
-export function XorParticleGraphic() {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+interface XorParticleGraphicProps {
+  activeScene: number;
+}
+
+export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const pointerRef = useRef<PointerState>({
-    x: -9999,
-    y: -9999,
-    vx: 0,
-    vy: 0,
-    active: false,
-  });
-  const prevPointerPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const targetSceneRef = useRef<number>(clampSceneIndex(activeScene));
+  const transitionStartRef = useRef<number>(0);
+  const hasMountedSceneRef = useRef<boolean>(false);
+
+  // Trigger a fresh ~900ms scatter-and-glide morph whenever the locked scene steps
+  useEffect(() => {
+    const nextScene = clampSceneIndex(activeScene);
+    if (!hasMountedSceneRef.current) {
+      hasMountedSceneRef.current = true;
+      targetSceneRef.current = nextScene;
+      transitionStartRef.current = 0;
+      return;
+    }
+    if (nextScene !== targetSceneRef.current) {
+      targetSceneRef.current = nextScene;
+      transitionStartRef.current = performance.now();
+    }
+  }, [activeScene]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
+    if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: true });
     if (!ctx) return;
 
-    const particles = createParticles(PARTICLE_COUNT);
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    let budget = getParticleBudget(width);
+    let particles: SpaceParticle[] = createSpaceParticles(budget);
+    const stars: AmbientStar[] = createAmbientStars(AMBIENT_STAR_COUNT);
+
+    // Smoothly interpolated viewport anchor & scale for discrete scene gliding
+    const initialAnchor = getSceneAnchorConfig(
+      targetSceneRef.current,
+      width < 768
+    );
+    let currentAnchorX = initialAnchor.anchorX;
+    let currentAnchorY = initialAnchor.anchorY;
+    let currentScale = initialAnchor.scale;
+    let currentSceneSpin = targetSceneRef.current * 0.55;
+
+    let targetTiltX = 0;
+    let targetTiltY = 0;
+    let currentTiltX = 0;
+    let currentTiltY = 0;
 
     let animFrame = 0;
-    let currentScale = 1;
+    let lastSceneAttr = -1;
 
-    const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const rect = container.getBoundingClientRect();
-      const displaySize = Math.max(240, Math.min(rect.width || LOGICAL_SIZE, LOGICAL_SIZE));
+    // 3 cosmic colors (65% White, 20% Light Orange #FB923C, 15% Electric Sky Blue #38BDF8) x 4 alpha buckets
+    const COLOR_COUNT = 3;
+    const ALPHA_BUCKETS = 4;
+    const ALPHA_LEVELS = [0.24, 0.5, 0.78, 0.98];
 
-      canvas.width = Math.round(displaySize * dpr);
-      canvas.height = Math.round(displaySize * dpr);
-      canvas.style.width = `${displaySize}px`;
-      canvas.style.height = `${displaySize}px`;
-
-      currentScale = displaySize / LOGICAL_SIZE;
-      ctx.setTransform(dpr * currentScale, 0, 0, dpr * currentScale, 0, 0);
-    };
-
-    resize();
-
-    const resizeObserver = new ResizeObserver(() => {
-      resize();
-      if (reducedMotion) {
-        drawFrame(0, 0.016, true);
+    const bucketFillStyles: string[] = [];
+    for (let c = 0; c < COLOR_COUNT; c++) {
+      const [r, g, b] = COSMIC_PALETTE_RGB[c];
+      for (let a = 0; a < ALPHA_BUCKETS; a++) {
+        bucketFillStyles.push(`rgba(${r}, ${g}, ${b}, ${ALPHA_LEVELS[a]})`);
       }
-    });
-    resizeObserver.observe(container);
+    }
 
-    const drawArchitecturalGuides = () => {
-      const outerSpanX = X_SLOPE * X_HALF_HEIGHT + X_STROKE_HALF_WIDTH + 18;
-      const outerSpanY = X_HALF_HEIGHT + 18;
+    const haloFillStyles = COSMIC_PALETTE_RGB.map(
+      ([r, g, b], idx) =>
+        `rgba(${r}, ${g}, ${b}, ${idx === 0 ? 0.2 : 0.28})`
+    );
 
-      // Subtle architectural bounding frame hairlines (#484A43 at 35% opacity)
-      ctx.strokeStyle = "rgba(72, 74, 67, 0.32)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(
-        CENTER - outerSpanX,
-        CENTER - outerSpanY,
-        outerSpanX * 2,
-        outerSpanY * 2
-      );
+    const starFillStyles: string[] = [];
+    const STAR_ALPHAS = [0.18, 0.34, 0.54];
+    for (let c = 0; c < COLOR_COUNT; c++) {
+      const [r, g, b] = COSMIC_PALETTE_RGB[c];
+      for (let t = 0; t < 3; t++) {
+        starFillStyles.push(`rgba(${r}, ${g}, ${b}, ${STAR_ALPHAS[t]})`);
+      }
+    }
 
-      // Subtle intersecting diagonal guide hairlines behind the X
-      ctx.beginPath();
-      ctx.moveTo(CENTER - outerSpanX, CENTER - outerSpanY);
-      ctx.lineTo(CENTER + outerSpanX, CENTER + outerSpanY);
-      ctx.moveTo(CENTER + outerSpanX, CENTER - outerSpanY);
-      ctx.lineTo(CENTER - outerSpanX, CENTER + outerSpanY);
-      ctx.strokeStyle = "rgba(72, 74, 67, 0.2)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
+    const maxParticles = 3000;
+    const projX = new Float32Array(maxParticles);
+    const projY = new Float32Array(maxParticles);
+    const projR = new Float32Array(maxParticles);
+    const projColor = new Uint8Array(maxParticles);
+    const projAlpha = new Uint8Array(maxParticles);
 
-      // Corner Brick Rose calibration ticks
-      const tick = 10;
-      const left = CENTER - outerSpanX;
-      const right = CENTER + outerSpanX;
-      const top = CENTER - outerSpanY;
-      const bottom = CENTER + outerSpanY;
+    const syncCanvasSize = () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-      ctx.beginPath();
-      // Top-left
-      ctx.moveTo(left, top + tick);
-      ctx.lineTo(left, top);
-      ctx.lineTo(left + tick, top);
-      // Top-right
-      ctx.moveTo(right - tick, top);
-      ctx.lineTo(right, top);
-      ctx.lineTo(right, top + tick);
-      // Bottom-left
-      ctx.moveTo(left, bottom - tick);
-      ctx.lineTo(left, bottom);
-      ctx.lineTo(left + tick, bottom);
-      // Bottom-right
-      ctx.moveTo(right - tick, bottom);
-      ctx.lineTo(right, bottom);
-      ctx.lineTo(right, bottom - tick);
-      ctx.strokeStyle = "rgba(188, 128, 106, 0.48)";
-      ctx.lineWidth = 1.25;
-      ctx.stroke();
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const nextBudget = getParticleBudget(width);
+      if (nextBudget !== budget) {
+        budget = nextBudget;
+        particles = createSpaceParticles(budget);
+      }
+      canvas.dataset.particleCount = String(particles.length);
     };
 
-    const drawFrame = (timeSec: number, dt: number, isStatic: boolean) => {
-      ctx.clearRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
-      drawArchitecturalGuides();
+    const handlePointerMove = (e: PointerEvent) => {
+      if (width <= 0 || height <= 0) return;
+      const nx = (e.clientX / width - 0.5) * 2;
+      const ny = (e.clientY / height - 0.5) * 2;
+      targetTiltY = nx * 0.3;
+      targetTiltX = -ny * 0.2;
+    };
 
-      const pointer = pointerRef.current;
+    const handlePointerLeave = () => {
+      targetTiltX = 0;
+      targetTiltY = 0;
+    };
+
+    const renderFrame = (
+      nowMs: number,
+      timeSec: number,
+      dt: number,
+      isStatic: boolean
+    ) => {
+      ctx.clearRect(0, 0, width, height);
+
+      const sceneIdx = targetSceneRef.current;
+      const isMobile = width < 768;
+
+      if (sceneIdx !== lastSceneAttr) {
+        lastSceneAttr = sceneIdx;
+        canvas.dataset.scene = String(sceneIdx);
+        canvas.dataset.morphStage = SCENE_META[sceneIdx]?.stage ?? "rocket";
+      }
+
+      const elapsedMorphMs =
+        transitionStartRef.current > 0 ? nowMs - transitionStartRef.current : PARTICLE_MORPH_DURATION_MS;
+      const transitionProgress = isStatic
+        ? 1
+        : getMorphTransitionProgress(elapsedMorphMs, PARTICLE_MORPH_DURATION_MS);
+
+      const smoothLerp = isStatic
+        ? 1
+        : getMorphLerpFactor(dt, PARTICLE_MORPH_LERP_60FPS);
 
       if (!isStatic) {
-        stepParticleField(particles, pointer, timeSec, dt);
-
-        // Smoothly decay pointer wake velocity when cursor pauses
-        const wakeDecay = Math.exp(-8 * Math.min(dt, 0.04));
-        pointer.vx *= wakeDecay;
-        pointer.vy *= wakeDecay;
+        const tiltLerp = 1 - Math.exp(-6.0 * Math.min(dt, 0.04));
+        currentTiltX += (targetTiltX - currentTiltX) * tiltLerp;
+        currentTiltY += (targetTiltY - currentTiltY) * tiltLerp;
       }
 
-      // Batch ~2,600 particles by (colorIndex x alphaBucket) — max 15 draw calls per frame
-      const ALPHA_BUCKETS = 5;
-      const buckets: number[][][] = PARTICLE_PALETTE.map(() =>
-        Array.from({ length: ALPHA_BUCKETS }, () => [])
+      // Smoothly glide viewport anchor & scale at the same balanced medium pace
+      const targetAnchor = getSceneAnchorConfig(sceneIdx, isMobile);
+      currentAnchorX += (targetAnchor.anchorX - currentAnchorX) * smoothLerp;
+      currentAnchorY += (targetAnchor.anchorY - currentAnchorY) * smoothLerp;
+      currentScale += (targetAnchor.scale - currentScale) * smoothLerp;
+      currentSceneSpin += (sceneIdx * 0.55 - currentSceneSpin) * smoothLerp;
+
+      // 1. Render 280 multi-tint drifting ambient background stars
+      const parallaxOffsetX = currentTiltY * 26;
+      const parallaxOffsetY = currentTiltX * 20;
+      const sceneDriftY = currentSceneSpin * 64;
+
+      for (let c = 0; c < COLOR_COUNT; c++) {
+        for (let tier = 0; tier < 3; tier++) {
+          ctx.fillStyle = starFillStyles[c * 3 + tier];
+          for (let i = 0; i < stars.length; i++) {
+            const s = stars[i];
+            if (s.colorIdx !== c) continue;
+            const starTier = s.alpha < 0.28 ? 0 : s.alpha < 0.44 ? 1 : 2;
+            if (starTier !== tier) continue;
+            if (!isStatic) {
+              s.nx = (s.nx + s.driftVx * dt + 1) % 1;
+              s.ny = (s.ny + s.driftVy * dt + 1) % 1;
+            }
+            const sx =
+              ((s.nx * width + parallaxOffsetX * s.depth) % width + width) %
+              width;
+            const sy =
+              ((s.ny * height -
+                sceneDriftY * s.depth +
+                parallaxOffsetY * s.depth) %
+                height +
+                height) %
+              height;
+            const size = s.radius * 1.65;
+            ctx.fillRect(sx, sy, size, size);
+          }
+        }
+      }
+
+      // 2. Step balanced medium-speed 3D particle morphing (~850-950ms settling)
+      stepMorphParticles(
+        particles,
+        sceneIdx,
+        transitionProgress,
+        timeSec,
+        dt,
+        isStatic
       );
 
+      // Gentle ambient 3D orbital spin + cursor parallax
+      const idleSpin = isStatic
+        ? 0.14
+        : sceneIdx === 0
+          ? Math.sin(timeSec * 0.5) * 0.22
+          : sceneIdx === 4
+            ? Math.sin(timeSec * 0.65) * 0.22
+            : timeSec * 0.26;
+      const rotY = idleSpin + currentSceneSpin + currentTiltY;
+      const rotX =
+        (isStatic ? 0.05 : Math.sin(timeSec * 0.35) * 0.07) + currentTiltX;
+
+      const originX = currentAnchorX * width;
+      const originY = currentAnchorY * height;
+      const viewportScale =
+        (Math.min(width, height) / 760) *
+        currentScale *
+        (isMobile ? 1.08 : 1.06);
+
+      // 3. Project 3D points into pre-bucketed typed arrays
+      const BUCKET_COUNT = COLOR_COUNT * ALPHA_BUCKETS;
+      const bucketCounts = new Int32Array(BUCKET_COUNT);
+      const haloCounts = new Int32Array(COLOR_COUNT);
+
+      let visibleCount = 0;
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
-        const alpha = Math.min(1, p.baseAlpha + p.heat * 0.42);
-        const aIdx = Math.min(
-          ALPHA_BUCKETS - 1,
-          Math.max(0, Math.floor(((alpha - 0.5) / 0.5) * ALPHA_BUCKETS))
+        const proj = projectPoint3D(
+          p.x,
+          p.y,
+          p.z,
+          rotY,
+          rotX,
+          originX,
+          originY,
+          viewportScale
         );
-        buckets[p.colorIndex][aIdx].push(i);
+
+        if (
+          proj.screenX < -24 ||
+          proj.screenX > width + 24 ||
+          proj.screenY < -24 ||
+          proj.screenY > height + 24
+        ) {
+          continue;
+        }
+
+        const twinkle = isStatic
+          ? 1
+          : 0.84 + 0.16 * Math.sin(timeSec * p.twinkleSpeed + p.phase);
+        const depthAlpha =
+          (0.3 + proj.depthNorm * 0.7) * p.baseAlpha * twinkle;
+        const alphaIdx = Math.min(
+          ALPHA_BUCKETS - 1,
+          Math.max(0, Math.floor(depthAlpha * ALPHA_BUCKETS))
+        );
+        const drawRadius = Math.max(0.68, p.radius * proj.perspective * 1.04);
+
+        projX[visibleCount] = proj.screenX;
+        projY[visibleCount] = proj.screenY;
+        projR[visibleCount] = drawRadius;
+        projColor[visibleCount] = p.colorIdx;
+        projAlpha[visibleCount] = alphaIdx;
+        bucketCounts[p.colorIdx * ALPHA_BUCKETS + alphaIdx]++;
+        if (alphaIdx === ALPHA_BUCKETS - 1) {
+          haloCounts[p.colorIdx]++;
+        }
+        visibleCount++;
       }
 
-      for (let c = 0; c < PARTICLE_PALETTE.length; c++) {
-        const [r, g, b] = PARTICLE_PALETTE[c];
-        for (let a = 0; a < ALPHA_BUCKETS; a++) {
-          const list = buckets[c][a];
-          if (list.length === 0) continue;
+      // 4. Batched luminous halos for front-depth brightest particles
+      for (let c = 0; c < COLOR_COUNT; c++) {
+        if (haloCounts[c] === 0) continue;
+        ctx.fillStyle = haloFillStyles[c];
+        const glowMult = c === 0 ? 3.0 : 3.5;
+        for (let i = 0; i < visibleCount; i++) {
+          if (projAlpha[i] < 3 || projColor[i] !== c) continue;
+          const r = projR[i];
+          const glow = r * glowMult;
+          const half = glow * 0.5;
+          ctx.fillRect(projX[i] - half, projY[i] - half, glow, glow);
+        }
+      }
 
-          const bucketAlpha = Math.min(1, 0.54 + (a / (ALPHA_BUCKETS - 1)) * 0.46);
-          ctx.beginPath();
-          for (let j = 0; j < list.length; j++) {
-            const p = particles[list[j]];
-            const drawRadius = p.radius + p.heat * 0.28;
-            ctx.moveTo(p.x + drawRadius, p.y);
-            ctx.arc(p.x, p.y, drawRadius, 0, Math.PI * 2);
-          }
-          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${bucketAlpha.toFixed(2)})`;
-          ctx.fill();
+      // 5. Batched cosmic core particles
+      for (let b = 0; b < BUCKET_COUNT; b++) {
+        if (bucketCounts[b] === 0) continue;
+        const c = Math.floor(b / ALPHA_BUCKETS);
+        const a = b % ALPHA_BUCKETS;
+        ctx.fillStyle = bucketFillStyles[b];
+        for (let i = 0; i < visibleCount; i++) {
+          if (projColor[i] !== c || projAlpha[i] !== a) continue;
+          const r = projR[i];
+          const d = r * 1.9;
+          ctx.fillRect(projX[i] - r, projY[i] - r, d, d);
         }
       }
     };
 
+    syncCanvasSize();
+    window.addEventListener("resize", syncCanvasSize, { passive: true });
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("pointerleave", handlePointerLeave, {
+      passive: true,
+    });
+
     if (reducedMotion) {
-      drawFrame(0, 0.016, true);
-    } else {
-      const startTime = performance.now();
-      let lastTime = startTime;
-      const loop = (now: number) => {
-        const dt = (now - lastTime) / 1000;
-        lastTime = now;
-        drawFrame((now - startTime) / 1000, dt, false);
-        animFrame = requestAnimationFrame(loop);
+      const renderStatic = () => renderFrame(performance.now(), 0, 0.016, true);
+      renderStatic();
+      const onResizeStatic = () => {
+        syncCanvasSize();
+        renderStatic();
       };
-      animFrame = requestAnimationFrame(loop);
+      window.addEventListener("resize", onResizeStatic, { passive: true });
+      return () => {
+        window.removeEventListener("resize", onResizeStatic);
+        window.removeEventListener("resize", syncCanvasSize);
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerleave", handlePointerLeave);
+      };
     }
+
+    const startTime = performance.now();
+    let lastTime = startTime;
+    const loop = (now: number) => {
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+      renderFrame(now, (now - startTime) / 1000, dt, false);
+      animFrame = requestAnimationFrame(loop);
+    };
+    animFrame = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(animFrame);
-      resizeObserver.disconnect();
+      window.removeEventListener("resize", syncCanvasSize);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerleave", handlePointerLeave);
     };
   }, []);
 
-  const updatePointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return;
-
-    const scaleX = LOGICAL_SIZE / rect.width;
-    const scaleY = LOGICAL_SIZE / rect.height;
-    const nextX = (e.clientX - rect.left) * scaleX;
-    const nextY = (e.clientY - rect.top) * scaleY;
-    const now = performance.now();
-
-    const prev = prevPointerPosRef.current;
-    if (prev) {
-      const dt = Math.max(0.008, (now - prev.time) / 1000);
-      const rawVx = Math.max(-500, Math.min(500, (nextX - prev.x) / dt));
-      const rawVy = Math.max(-500, Math.min(500, (nextY - prev.y) / dt));
-      pointerRef.current.vx = pointerRef.current.vx * 0.5 + rawVx * 0.5;
-      pointerRef.current.vy = pointerRef.current.vy * 0.5 + rawVy * 0.5;
-    }
-
-    prevPointerPosRef.current = { x: nextX, y: nextY, time: now };
-    pointerRef.current.x = nextX;
-    pointerRef.current.y = nextY;
-    pointerRef.current.active = true;
-  };
-
-  const handlePointerLeave = () => {
-    pointerRef.current.active = false;
-    pointerRef.current.x = -9999;
-    pointerRef.current.y = -9999;
-    pointerRef.current.vx = 0;
-    pointerRef.current.vy = 0;
-    prevPointerPosRef.current = null;
-  };
-
   return (
-    <div
-      ref={containerRef}
-      className="relative w-full h-[240px] sm:h-[340px] lg:h-[420px] max-w-[420px] aspect-square mx-auto flex items-center justify-center select-none"
-    >
-      <canvas
-        ref={canvasRef}
-        data-testid="xor-particle-graphic"
-        onPointerEnter={updatePointer}
-        onPointerMove={updatePointer}
-        onPointerDown={updatePointer}
-        onPointerLeave={handlePointerLeave}
-        className="block cursor-crosshair touch-none"
-        aria-label="Interactive XOR particle letter X graphic"
-        role="img"
-      />
-    </div>
+    <canvas
+      ref={canvasRef}
+      data-testid="xor-particle-graphic"
+      data-scene={activeScene}
+      data-morph-stage={SCENE_META[activeScene]?.stage ?? "rocket"}
+      aria-hidden="true"
+      className="fixed inset-0 pointer-events-none z-0 block"
+    />
   );
 }

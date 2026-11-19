@@ -19,10 +19,10 @@ export default function Image() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          backgroundColor: "#162323",
+          backgroundColor: "#050507",
           padding: "70px 80px",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          border: "2px solid rgba(188, 128, 106, 0.35)",
+          border: "2px solid rgba(255, 255, 255, 0.15)",
         }}
       >
         {/* Top Header */}
@@ -38,7 +38,7 @@ export default function Image() {
             style={{
               display: "flex",
               fontSize: "15px",
-              color: "#BC806A",
+              color: "#FB923C",
               letterSpacing: "0.26em",
               textTransform: "uppercase",
               fontWeight: 600,
@@ -50,7 +50,7 @@ export default function Image() {
             style={{
               display: "flex",
               fontSize: "14px",
-              color: "#806B64",
+              color: "#38BDF8",
               letterSpacing: "0.22em",
               textTransform: "uppercase",
             }}
@@ -72,7 +72,7 @@ export default function Image() {
               display: "flex",
               fontSize: "84px",
               fontWeight: 700,
-              color: "#EFE7E4",
+              color: "#FFFFFF",
               letterSpacing: "0.22em",
               textTransform: "uppercase",
               lineHeight: 1,
@@ -86,36 +86,36 @@ export default function Image() {
             style={{
               display: "flex",
               fontSize: "36px",
-              fontWeight: 400,
-              color: "#EFE7E4",
+              fontWeight: 500,
+              color: "#FFFFFF",
               letterSpacing: "-0.02em",
               lineHeight: 1.25,
               marginBottom: "16px",
             }}
           >
-            We build people who build things.
+            WE BUILD PEOPLE WHO BUILD THINGS.
           </div>
 
           <div
             style={{
               display: "flex",
               fontSize: "20px",
-              color: "#B59289",
+              color: "#A1A1AA",
               maxWidth: "880px",
               lineHeight: 1.4,
             }}
           >
-            The student engineering club portal at LAEC Bidar. Claim your XOR-26 virtual member pass, attend workshops, and RSVP to weekend build sprints.
+            The student engineering club portal at LAEC Bidar. Claim your XOR-26 virtual member pass, attend workshops, and join weekend build sprints.
           </div>
         </div>
 
-        {/* Bottom Metadata & Accent Indicator */}
+        {/* Bottom Metadata */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            borderTop: "1px solid rgba(72, 74, 67, 0.55)",
+            borderTop: "1px solid rgba(255, 255, 255, 0.15)",
             paddingTop: "24px",
             width: "100%",
           }}
@@ -132,7 +132,7 @@ export default function Image() {
                 width: "8px",
                 height: "8px",
                 borderRadius: "999px",
-                backgroundColor: "#BC806A",
+                backgroundColor: "#FB923C",
                 marginRight: "10px",
               }}
             />
@@ -140,7 +140,7 @@ export default function Image() {
               style={{
                 display: "flex",
                 fontSize: "15px",
-                color: "#BC806A",
+                color: "#FFFFFF",
                 letterSpacing: "0.16em",
                 textTransform: "uppercase",
               }}
@@ -153,7 +153,7 @@ export default function Image() {
             style={{
               display: "flex",
               fontSize: "15px",
-              color: "#806B64",
+              color: "#38BDF8",
               letterSpacing: "0.18em",
               textTransform: "uppercase",
             }}

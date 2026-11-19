@@ -63,13 +63,13 @@ export function ScrollProgress({
   return (
     <div
       aria-hidden="true"
-      className="fixed inset-x-0 top-0 z-[45] h-[2.5px] pointer-events-none bg-[#484A43]/25"
+      className="fixed inset-x-0 top-0 z-[45] h-[2px] pointer-events-none bg-white/10"
     >
       <div
         ref={setRefs}
         data-testid="scroll-progress"
         className={cn(
-          "h-full w-full origin-left bg-[#BC806A] will-change-transform",
+          "h-full w-full origin-left bg-gradient-to-r from-[#FB923C] via-white to-[#38BDF8] will-change-transform",
           className
         )}
         style={{ transform: "scaleX(0)" }}
