@@ -3,7 +3,7 @@ export const SCENE_LOCK_MS = 680;
 export const PARTICLE_MORPH_DURATION_MS = 900;
 export const PARTICLE_MORPH_LERP_60FPS = 0.055;
 export const WHEEL_DELTA_THRESHOLD = 28;
-export const TOUCH_SWIPE_THRESHOLD = 42;
+export const TOUCH_SWIPE_THRESHOLD = 35;
 
 export const SCENE_META = [
   { index: 0, id: "hero", stage: "rocket", label: "Hero" },

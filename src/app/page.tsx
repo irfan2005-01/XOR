@@ -37,7 +37,7 @@ export default function HomePage() {
   const isPreloaderActive = !alreadyPreloaded && !preloaderDismissed;
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-[#050507] text-white selection:bg-[#FB923C]/25 selection:text-white">
+    <div className="fixed inset-0 h-dvh w-full overflow-hidden overscroll-none select-none bg-[#050507] text-white selection:bg-[#FB923C]/25 selection:text-white">
       {/* Zoom-Through Letter-Fill Preloader */}
       <Preloader onExitStart={() => setPreloaderDismissed(true)} />
 

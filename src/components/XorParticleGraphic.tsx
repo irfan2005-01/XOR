@@ -84,23 +84,20 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
     let animFrame = 0;
     let lastSceneAttr = -1;
 
-    // 3 cosmic colors (65% White, 20% Light Orange #FB923C, 15% Electric Sky Blue #38BDF8) x 4 alpha buckets
+    // 3 cosmic colors (65% White, 20% Light Orange #FB923C, 15% Electric Sky Blue #38BDF8)
     const COLOR_COUNT = 3;
-    const ALPHA_BUCKETS = 4;
-    const ALPHA_LEVELS = [0.24, 0.5, 0.78, 0.98];
 
-    const bucketFillStyles: string[] = [];
+    // Precomputed 0-100 alpha RGBA strings to eliminate per-frame string allocations
+    const rgbaLookup: string[][] = [[], [], []];
+    const haloLookup: string[][] = [[], [], []];
     for (let c = 0; c < COLOR_COUNT; c++) {
       const [r, g, b] = COSMIC_PALETTE_RGB[c];
-      for (let a = 0; a < ALPHA_BUCKETS; a++) {
-        bucketFillStyles.push(`rgba(${r}, ${g}, ${b}, ${ALPHA_LEVELS[a]})`);
+      for (let a = 0; a <= 100; a++) {
+        const normA = a / 100;
+        rgbaLookup[c][a] = `rgba(${r}, ${g}, ${b}, ${normA.toFixed(2)})`;
+        haloLookup[c][a] = `rgba(${r}, ${g}, ${b}, ${(normA * (c === 0 ? 0.22 : 0.3)).toFixed(3)})`;
       }
     }
-
-    const haloFillStyles = COSMIC_PALETTE_RGB.map(
-      ([r, g, b], idx) =>
-        `rgba(${r}, ${g}, ${b}, ${idx === 0 ? 0.2 : 0.28})`
-    );
 
     const starFillStyles: string[] = [];
     const STAR_ALPHAS = [0.18, 0.34, 0.54];
@@ -111,12 +108,14 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
       }
     }
 
-    const maxParticles = 3000;
+    const maxParticles = 3200;
     const projX = new Float32Array(maxParticles);
     const projY = new Float32Array(maxParticles);
     const projR = new Float32Array(maxParticles);
+    const projDepth = new Float32Array(maxParticles);
     const projColor = new Uint8Array(maxParticles);
-    const projAlpha = new Uint8Array(maxParticles);
+    const projAlphaIdx = new Uint8Array(maxParticles);
+    const sortIndices = new Int32Array(maxParticles);
 
     const syncCanvasSize = () => {
       width = window.innerWidth;
@@ -217,13 +216,15 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
                 height +
                 height) %
               height;
-            const size = s.radius * 1.65;
-            ctx.fillRect(sx, sy, size, size);
+            const size = Math.max(0.6, s.radius * 1.4);
+            ctx.beginPath();
+            ctx.arc(sx, sy, size, 0, Math.PI * 2);
+            ctx.fill();
           }
         }
       }
 
-      // 2. Step balanced medium-speed 3D particle morphing (~850-950ms settling)
+      // 2. Step balanced spring 3D particle morphing (~850ms settling)
       stepMorphParticles(
         particles,
         sceneIdx,
@@ -250,13 +251,9 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
       const viewportScale =
         (Math.min(width, height) / 760) *
         currentScale *
-        (isMobile ? 1.08 : 1.06);
+        (isMobile ? 1.0 : 1.06);
 
-      // 3. Project 3D points into pre-bucketed typed arrays
-      const BUCKET_COUNT = COLOR_COUNT * ALPHA_BUCKETS;
-      const bucketCounts = new Int32Array(BUCKET_COUNT);
-      const haloCounts = new Int32Array(COLOR_COUNT);
-
+      // 3. Project 3D points
       let visibleCount = 0;
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
@@ -272,10 +269,10 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
         );
 
         if (
-          proj.screenX < -24 ||
-          proj.screenX > width + 24 ||
-          proj.screenY < -24 ||
-          proj.screenY > height + 24
+          proj.screenX < -32 ||
+          proj.screenX > width + 32 ||
+          proj.screenY < -32 ||
+          proj.screenY > height + 32
         ) {
           continue;
         }
@@ -283,53 +280,63 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
         const twinkle = isStatic
           ? 1
           : 0.84 + 0.16 * Math.sin(timeSec * p.twinkleSpeed + p.phase);
-        const depthAlpha =
-          (0.3 + proj.depthNorm * 0.7) * p.baseAlpha * twinkle;
+        
+        // Depth-scaled opacity: 0.22 far -> 0.95 near
+        const depthOpacity =
+          (0.22 + 0.73 * proj.depthNorm) * p.baseAlpha * twinkle;
         const alphaIdx = Math.min(
-          ALPHA_BUCKETS - 1,
-          Math.max(0, Math.floor(depthAlpha * ALPHA_BUCKETS))
+          100,
+          Math.max(0, Math.round(depthOpacity * 100))
         );
-        const drawRadius = Math.max(0.68, p.radius * proj.perspective * 1.04);
+
+        // Depth-scaled radius
+        const drawRadius = Math.max(
+          0.72,
+          p.radius * proj.perspective * (0.65 + 0.55 * proj.depthNorm)
+        );
 
         projX[visibleCount] = proj.screenX;
         projY[visibleCount] = proj.screenY;
         projR[visibleCount] = drawRadius;
+        projDepth[visibleCount] = proj.depthNorm;
         projColor[visibleCount] = p.colorIdx;
-        projAlpha[visibleCount] = alphaIdx;
-        bucketCounts[p.colorIdx * ALPHA_BUCKETS + alphaIdx]++;
-        if (alphaIdx === ALPHA_BUCKETS - 1) {
-          haloCounts[p.colorIdx]++;
-        }
+        projAlphaIdx[visibleCount] = alphaIdx;
+        sortIndices[visibleCount] = visibleCount;
         visibleCount++;
       }
 
-      // 4. Batched luminous halos for front-depth brightest particles
-      for (let c = 0; c < COLOR_COUNT; c++) {
-        if (haloCounts[c] === 0) continue;
-        ctx.fillStyle = haloFillStyles[c];
-        const glowMult = c === 0 ? 3.0 : 3.5;
-        for (let i = 0; i < visibleCount; i++) {
-          if (projAlpha[i] < 3 || projColor[i] !== c) continue;
-          const r = projR[i];
-          const glow = r * glowMult;
-          const half = glow * 0.5;
-          ctx.fillRect(projX[i] - half, projY[i] - half, glow, glow);
+      // 4. Depth-sort particles back-to-front (ascending depthNorm: 0.0 far -> 1.0 near)
+      const visibleIndices = sortIndices.subarray(0, visibleCount);
+      visibleIndices.sort((a, b) => projDepth[a] - projDepth[b]);
+
+      // 5. Draw smooth anti-aliased glowing 3D spheres with subtle additive luminosity
+      ctx.globalCompositeOperation = "lighter";
+
+      for (let s = 0; s < visibleCount; s++) {
+        const idx = visibleIndices[s];
+        const x = projX[idx];
+        const y = projY[idx];
+        const r = projR[idx];
+        const c = projColor[idx];
+        const a = projAlphaIdx[idx];
+        const depthNorm = projDepth[idx];
+
+        // Luminous halo for front-depth particles
+        if (depthNorm > 0.52 && a > 22) {
+          ctx.fillStyle = haloLookup[c][a];
+          ctx.beginPath();
+          ctx.arc(x, y, r * 2.6, 0, Math.PI * 2);
+          ctx.fill();
         }
+
+        // Crisp anti-aliased glowing sphere
+        ctx.fillStyle = rgbaLookup[c][a];
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
       }
 
-      // 5. Batched cosmic core particles
-      for (let b = 0; b < BUCKET_COUNT; b++) {
-        if (bucketCounts[b] === 0) continue;
-        const c = Math.floor(b / ALPHA_BUCKETS);
-        const a = b % ALPHA_BUCKETS;
-        ctx.fillStyle = bucketFillStyles[b];
-        for (let i = 0; i < visibleCount; i++) {
-          if (projColor[i] !== c || projAlpha[i] !== a) continue;
-          const r = projR[i];
-          const d = r * 1.9;
-          ctx.fillRect(projX[i] - r, projY[i] - r, d, d);
-        }
-      }
+      ctx.globalCompositeOperation = "source-over";
     };
 
     syncCanvasSize();

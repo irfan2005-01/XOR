@@ -6,6 +6,7 @@ import {
   SCENE_COUNT,
   SCENE_LOCK_MS,
   SCENE_META,
+  TOUCH_SWIPE_THRESHOLD,
   canAcceptSceneTransition,
   clampSceneIndex,
   getMorphLerpFactor,
@@ -24,6 +25,7 @@ test("discrete stage controller defines 5 scenes and balanced morph parameters",
     PARTICLE_MORPH_DURATION_MS >= 850 && PARTICLE_MORPH_DURATION_MS <= 950
   );
   assert.equal(PARTICLE_MORPH_LERP_60FPS, 0.055);
+  assert.equal(TOUCH_SWIPE_THRESHOLD, 35);
   assert.deepEqual(
     SCENE_META.map((s) => s.stage),
     ["rocket", "satellite", "globe", "gyroscope", "astronaut"]

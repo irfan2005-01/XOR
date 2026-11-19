@@ -57,12 +57,20 @@ test("createAmbientStars builds 280 background stars across normalized viewport"
   }
 });
 
-test("getSceneAnchorConfig maps all 5 discrete scenes cleanly", () => {
+test("getSceneAnchorConfig maps all 5 discrete scenes cleanly and scales for mobile", () => {
   assert.equal(getSceneAnchorConfig(0, false).stage, "rocket");
   assert.equal(getSceneAnchorConfig(1, false).stage, "satellite");
   assert.equal(getSceneAnchorConfig(2, false).stage, "globe");
   assert.equal(getSceneAnchorConfig(3, false).stage, "gyroscope");
   assert.equal(getSceneAnchorConfig(4, false).stage, "astronaut");
+
+  // Mobile framing: 0.72x scale and centered at 66% viewport height below headlines
+  for (let s = 0; s < 5; s++) {
+    const mobileConfig = getSceneAnchorConfig(s, true);
+    assert.equal(mobileConfig.scale, 0.72);
+    assert.equal(mobileConfig.anchorY, 0.66);
+    assert.equal(mobileConfig.anchorX, 0.5);
+  }
 });
 
 test("stepMorphParticles smoothly disperses mid-transition and settles onto target formation within ~900ms", () => {

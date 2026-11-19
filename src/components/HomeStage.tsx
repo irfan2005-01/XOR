@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "motion/react";
 import { ArrowDown, ArrowRight, ArrowUpRight, MapPin } from "lucide-react";
 import { XorParticleGraphic } from "@/components/XorParticleGraphic";
 import { Marquee } from "@/components/ui/marquee";
@@ -12,6 +11,7 @@ import {
   SCENE_COUNT,
   SCENE_LOCK_MS,
   SCENE_META,
+  TOUCH_SWIPE_THRESHOLD,
   canAcceptSceneTransition,
   clampSceneIndex,
   resolveKeyboardStep,
@@ -70,20 +70,6 @@ const MISSION_TICKER_ITEMS = [
   "LAEC BIDAR",
 ];
 
-const SCENE_TRANSITION = {
-  initial: { opacity: 0, y: 14 },
-  animate: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.26, ease: [0.22, 1, 0.36, 1] as const },
-  },
-  exit: {
-    opacity: 0,
-    y: -10,
-    transition: { duration: 0.14, ease: [0.4, 0, 1, 1] as const },
-  },
-};
-
 export function HomeStage() {
   const { user, isHydrated, openAuthModal, isAuthModalOpen } = useAuth();
   const [activeScene, setActiveScene] = useState(0);
@@ -91,6 +77,7 @@ export function HomeStage() {
   const activeSceneRef = useRef(0);
   const lastTransitionRef = useRef(0);
   const touchStartYRef = useRef<number | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
   const isModalOpenRef = useRef(false);
 
   useEffect(() => {
@@ -136,6 +123,19 @@ export function HomeStage() {
     const handleTouchStart = (e: TouchEvent) => {
       if (isModalOpenRef.current || e.touches.length !== 1) return;
       touchStartYRef.current = e.touches[0].clientY;
+      touchStartXRef.current = e.touches[0].clientX;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isModalOpenRef.current || touchStartYRef.current === null) return;
+      const currentY = e.touches[0].clientY;
+      const currentX = e.touches[0].clientX;
+      const dy = Math.abs(currentY - touchStartYRef.current);
+      const startX = touchStartXRef.current ?? currentX;
+      const dx = Math.abs(currentX - startX);
+      if (dy > dx && dy > 8) {
+        if (e.cancelable) e.preventDefault();
+      }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
@@ -143,8 +143,9 @@ export function HomeStage() {
       const endY = e.changedTouches[0]?.clientY;
       const startY = touchStartYRef.current;
       touchStartYRef.current = null;
+      touchStartXRef.current = null;
       if (typeof endY !== "number") return;
-      const step = resolveTouchSwipeStep(startY, endY);
+      const step = resolveTouchSwipeStep(startY, endY, TOUCH_SWIPE_THRESHOLD);
       if (step !== 0) {
         stepScene(step);
       }
@@ -176,12 +177,14 @@ export function HomeStage() {
 
     window.addEventListener("wheel", handleWheel, { passive: false });
     window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
     window.addEventListener("touchend", handleTouchEnd, { passive: true });
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.removeEventListener("wheel", handleWheel);
       window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("touchend", handleTouchEnd);
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -199,10 +202,16 @@ export function HomeStage() {
     <div
       data-testid="home-stage"
       data-active-scene={activeScene}
-      className="relative h-[100dvh] w-full overflow-hidden bg-[#050507] text-white"
+      className="relative h-full w-full overflow-hidden overscroll-none select-none bg-[#050507] text-white"
     >
       {/* Cosmic 3D Morphing Particle Canvas (65% White / 20% Light Orange / 15% Electric Sky) */}
       <XorParticleGraphic activeScene={activeScene} />
+
+      {/* Subtle Top Text-Protection Gradient for Razor-Sharp White Typography */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 top-0 h-72 sm:h-96 z-[5] bg-gradient-to-b from-[#050507]/85 via-[#050507]/40 to-transparent"
+      />
 
       {/* Right-Edge Vertical Progress Dots & Scene Counter */}
       <nav
@@ -239,41 +248,57 @@ export function HomeStage() {
         </span>
       </nav>
 
-      {/* Locked Full-Viewport Active Scene Stage */}
+      {/* Simultaneous Overlapping Scene Stage (Zero Blank Gaps) */}
       <main className="relative z-10 h-full w-full">
-        <AnimatePresence mode="wait">
-          {/* ==================== SCENE 01: HERO + 3D ROCKET ==================== */}
-          {activeScene === 0 && (
-            <motion.section
-              key="scene-0"
-              data-testid="scene-layer-0"
-              aria-label="Hero"
-              {...SCENE_TRANSITION}
-              className="h-full w-full pt-20 sm:pt-24 pb-6 sm:pb-10 flex flex-col justify-between max-w-6xl mx-auto px-5 sm:px-8 pr-11 sm:pr-16"
-            >
-              <div className="my-auto grid grid-cols-1 lg:grid-cols-12 items-center gap-6 sm:gap-8">
-                <div className="lg:col-span-7 relative">
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -inset-8 -z-10"
-                    style={{
-                      background:
-                        "radial-gradient(ellipse 75% 70% at 30% 50%, rgba(5, 5, 7, 0.88) 0%, rgba(5, 5, 7, 0.5) 60%, rgba(5, 5, 7, 0) 100%)",
-                    }}
-                  />
+        {/* ==================== SCENE 01: HERO + 3D ROCKET ==================== */}
+        <section
+          key="scene-0"
+          data-testid="scene-layer-0"
+          aria-label="Hero"
+          aria-hidden={activeScene !== 0}
+          className={`absolute inset-0 h-full w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            activeScene === 0
+              ? "opacity-100 translate-y-0 pointer-events-auto z-10"
+              : "opacity-0 -translate-y-6 pointer-events-none z-0"
+          }`}
+        >
+          <div className="h-full w-full pt-[76px] pb-[52px] px-5 sm:pt-24 sm:pb-16 sm:px-10 flex flex-col justify-between max-w-6xl mx-auto pr-10 sm:pr-16">
+            <div className="my-auto grid grid-cols-1 lg:grid-cols-12 items-center gap-6 sm:gap-8">
+              <div className="lg:col-span-7 relative">
+                {/* 0ms Eyebrow */}
+                <p
+                  className={`font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.22em] text-[#FB923C] font-medium mb-3 sm:mb-4 transition-all duration-700 delay-0 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    activeScene === 0
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-2"
+                  }`}
+                >
+                  XOR &bull; LINGARAJ APPA ENGINEERING COLLEGE, BIDAR
+                </p>
 
-                  <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.22em] text-[#FB923C] font-medium mb-3 sm:mb-4">
-                    XOR &bull; LINGARAJ APPA ENGINEERING COLLEGE, BIDAR
-                  </p>
+                {/* 75ms Headline */}
+                <h1
+                  className={`font-heading uppercase font-semibold tracking-[-0.04em] leading-[0.95] text-white text-4xl sm:text-6xl lg:text-[4.5rem] transition-all duration-700 delay-[75ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    activeScene === 0
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-3"
+                  }`}
+                >
+                  WE BUILD
+                  <br />
+                  PEOPLE WHO
+                  <br />
+                  BUILD THINGS.
+                </h1>
 
-                  <h1 className="font-heading uppercase font-semibold tracking-[-0.04em] leading-[0.95] text-white text-4xl sm:text-6xl lg:text-[4.5rem]">
-                    WE BUILD
-                    <br />
-                    PEOPLE WHO
-                    <br />
-                    BUILD THINGS.
-                  </h1>
-
+                {/* 150ms Body & Actions */}
+                <div
+                  className={`transition-all duration-700 delay-[150ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    activeScene === 0
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-4"
+                  }`}
+                >
                   <p className="mt-4 sm:mt-6 max-w-lg text-sm sm:text-base text-[#A1A1AA] leading-relaxed">
                     The student engineering club at{" "}
                     <strong className="text-white font-semibold">
@@ -318,93 +343,120 @@ export function HomeStage() {
                     </Link>
                   </div>
                 </div>
-
-                {/* Open stage for volumetric 3D Cosmic Particle Rocket */}
-                <div
-                  className="hidden lg:block lg:col-span-5"
-                  aria-hidden="true"
-                />
               </div>
 
-              {/* Bottom Scroll Cue */}
-              <div className="flex items-center justify-between gap-4 border-t border-white/15 pt-3.5 sm:pt-4 text-[11px] font-mono uppercase tracking-[0.16em] text-[#A1A1AA]">
-                <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8]" />
-                  <span>
-                    <span className="text-[#FB923C]">01</span> / 05
-                    <span className="hidden sm:inline"> &bull; Launch</span>
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => goToScene(1, true)}
-                  className="inline-flex items-center gap-2 text-white/85 hover:text-[#FB923C] transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <span>Scroll to Explore</span>
-                  <ArrowDown
-                    className="w-3.5 h-3.5 text-[#FB923C]"
-                    strokeWidth={1.8}
-                  />
-                </button>
-              </div>
-            </motion.section>
-          )}
+              {/* Open stage for volumetric 3D Cosmic Particle Rocket */}
+              <div
+                className="hidden lg:block lg:col-span-5"
+                aria-hidden="true"
+              />
+            </div>
 
-          {/* ==================== SCENE 02: CLUB MISSION + 3D SATELLITE ==================== */}
-          {activeScene === 1 && (
-            <motion.section
-              key="scene-1"
-              data-testid="scene-layer-1"
-              aria-label="Club Mission"
-              {...SCENE_TRANSITION}
-              className="h-full w-full pt-16 pb-6 sm:pb-10 flex flex-col justify-between"
+            {/* Bottom Scroll Cue */}
+            <div
+              className={`flex items-center justify-between gap-4 border-t border-white/15 pt-3.5 sm:pt-4 text-[11px] font-mono uppercase tracking-[0.16em] text-[#A1A1AA] transition-all duration-700 delay-[150ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                activeScene === 0
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-2"
+              }`}
             >
-              {/* Sweeping Horizontal Kinetic Ticker Across Top */}
-              <div className="w-full border-y border-white/15 py-2.5 sm:py-3 overflow-hidden bg-[#050507]/60">
-                <Marquee
-                  repeat={4}
-                  className="[--duration:26s] [--gap:2.5rem] p-0"
-                >
-                  <div className="flex items-center gap-10 font-mono text-xs sm:text-sm uppercase tracking-[0.26em] text-white/90 whitespace-nowrap">
-                    {MISSION_TICKER_ITEMS.map((item) => (
-                      <React.Fragment key={item}>
-                        <span>{item}</span>
-                        <span className="text-[#FB923C]" aria-hidden="true">
-                          &bull;
-                        </span>
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </Marquee>
-              </div>
-
-              {/* Split Layout: Left Open for 3D Satellite, Right Bold Mission Copy */}
-              <div className="my-auto max-w-6xl w-full mx-auto px-5 sm:px-8 pr-11 sm:pr-16 grid grid-cols-1 lg:grid-cols-12 items-center gap-6 sm:gap-8">
-                <div
-                  className="hidden lg:block lg:col-span-6"
-                  aria-hidden="true"
+              <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8]" />
+                <span>
+                  <span className="text-[#FB923C]">01</span> / 05
+                  <span className="hidden sm:inline"> &bull; Launch</span>
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => goToScene(1, true)}
+                className="inline-flex items-center gap-2 text-white/85 hover:text-[#FB923C] transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span>Scroll to Explore</span>
+                <ArrowDown
+                  className="w-3.5 h-3.5 text-[#FB923C]"
+                  strokeWidth={1.8}
                 />
+              </button>
+            </div>
+          </div>
+        </section>
 
-                <div className="lg:col-span-6 relative lg:text-right flex flex-col lg:items-end">
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -inset-8 -z-10"
-                    style={{
-                      background:
-                        "radial-gradient(ellipse 80% 75% at 65% 50%, rgba(5, 5, 7, 0.88) 0%, rgba(5, 5, 7, 0.52) 60%, rgba(5, 5, 7, 0) 100%)",
-                    }}
-                  />
+        {/* ==================== SCENE 02: CLUB MISSION + 3D SATELLITE ==================== */}
+        <section
+          key="scene-1"
+          data-testid="scene-layer-1"
+          aria-label="Club Mission"
+          aria-hidden={activeScene !== 1}
+          className={`absolute inset-0 h-full w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            activeScene === 1
+              ? "opacity-100 translate-y-0 pointer-events-auto z-10"
+              : "opacity-0 -translate-y-6 pointer-events-none z-0"
+          }`}
+        >
+          <div className="h-full w-full pt-[76px] pb-[52px] px-5 sm:pt-24 sm:pb-16 sm:px-10 flex flex-col justify-between max-w-6xl mx-auto pr-10 sm:pr-16">
+            {/* Top Horizontal Kinetic Ticker */}
+            <div
+              className={`w-full border-y border-white/15 py-2 sm:py-2.5 overflow-hidden bg-[#050507]/60 shrink-0 transition-all duration-700 delay-0 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                activeScene === 1
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-2"
+              }`}
+            >
+              <Marquee repeat={4} className="[--duration:26s] [--gap:2.5rem] p-0">
+                <div className="flex items-center gap-10 font-mono text-xs sm:text-sm uppercase tracking-[0.26em] text-white/90 whitespace-nowrap">
+                  {MISSION_TICKER_ITEMS.map((item) => (
+                    <React.Fragment key={item}>
+                      <span>{item}</span>
+                      <span className="text-[#FB923C]" aria-hidden="true">
+                        &bull;
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </div>
+              </Marquee>
+            </div>
 
-                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#FB923C] font-medium mb-3 sm:mb-4">
-                    02 &bull; Club Mission
-                  </p>
+            {/* Split Layout: Left Open for 3D Satellite, Right Bold Mission Copy */}
+            <div className="my-auto w-full grid grid-cols-1 lg:grid-cols-12 items-center gap-6 sm:gap-8">
+              <div
+                className="hidden lg:block lg:col-span-6"
+                aria-hidden="true"
+              />
 
-                  <h2 className="font-heading uppercase font-semibold tracking-[-0.04em] leading-[0.96] text-white text-3xl sm:text-5xl lg:text-[4rem]">
-                    BUILT FOR
-                    <br />
-                    CAMPUS BUILDERS
-                  </h2>
+              <div className="lg:col-span-6 relative lg:text-right flex flex-col lg:items-end">
+                {/* 0ms Eyebrow */}
+                <p
+                  className={`font-mono text-[11px] uppercase tracking-[0.24em] text-[#FB923C] font-medium mb-3 sm:mb-4 transition-all duration-700 delay-0 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    activeScene === 1
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-2"
+                  }`}
+                >
+                  02 &bull; Club Mission
+                </p>
 
+                {/* 75ms Headline */}
+                <h2
+                  className={`font-heading uppercase font-semibold tracking-[-0.04em] leading-[0.96] text-white text-3xl sm:text-5xl lg:text-[4rem] transition-all duration-700 delay-[75ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    activeScene === 1
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-3"
+                  }`}
+                >
+                  BUILT FOR
+                  <br />
+                  CAMPUS BUILDERS
+                </h2>
+
+                {/* 150ms Body & Campus Link */}
+                <div
+                  className={`transition-all duration-700 delay-[150ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    activeScene === 1
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-4"
+                  }`}
+                >
                   <p className="mt-4 sm:mt-6 max-w-lg text-sm sm:text-base text-[#A1A1AA] leading-relaxed">
                     We believe in{" "}
                     <strong className="text-white font-semibold">
@@ -433,41 +485,69 @@ export function HomeStage() {
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="max-w-6xl w-full mx-auto px-5 sm:px-8 pr-11 sm:pr-16 flex items-center justify-between gap-4 border-t border-white/15 pt-3.5 sm:pt-4 text-[11px] font-mono uppercase tracking-[0.16em] text-[#A1A1AA]">
-                <span className="whitespace-nowrap">
-                  <span className="text-[#FB923C]">02</span> / 05
-                  <span className="hidden sm:inline"> &bull; Orbital Relay</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => goToScene(2, true)}
-                  className="inline-flex items-center gap-2 text-white/85 hover:text-[#FB923C] transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <span>Area of Focus</span>
-                  <ArrowDown
-                    className="w-3.5 h-3.5 text-[#FB923C]"
-                    strokeWidth={1.8}
-                  />
-                </button>
-              </div>
-            </motion.section>
-          )}
-
-          {/* ==================== SCENE 03: AREA OF FOCUS + 3D GLOBE ==================== */}
-          {activeScene === 2 && (
-            <motion.section
-              key="scene-2"
-              data-testid="scene-layer-2"
-              aria-label="Area of Focus"
-              {...SCENE_TRANSITION}
-              className="h-full w-full pt-16 sm:pt-24 pb-6 sm:pb-10 flex flex-col justify-between"
+            {/* Bottom Scroll Cue */}
+            <div
+              className={`flex items-center justify-between gap-4 border-t border-white/15 pt-3.5 sm:pt-4 text-[11px] font-mono uppercase tracking-[0.16em] text-[#A1A1AA] transition-all duration-700 delay-[150ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                activeScene === 1
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-2"
+              }`}
             >
-              {/* Giant Horizontal Kinetic Marquee with Electric Sky Blue Outline Glow */}
-              <div className="w-full pt-1 sm:pt-2 overflow-hidden shrink-0">
-                <p className="max-w-6xl mx-auto px-5 sm:px-8 font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.24em] text-[#FB923C] font-medium mb-1.5 sm:mb-2">
-                  03 &bull; Club Pillars
-                </p>
+              <span className="whitespace-nowrap">
+                <span className="text-[#FB923C]">02</span> / 05
+                <span className="hidden sm:inline"> &bull; Orbital Relay</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => goToScene(2, true)}
+                className="inline-flex items-center gap-2 text-white/85 hover:text-[#FB923C] transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span>Area of Focus</span>
+                <ArrowDown
+                  className="w-3.5 h-3.5 text-[#FB923C]"
+                  strokeWidth={1.8}
+                />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ==================== SCENE 03: AREA OF FOCUS + 3D GLOBE ==================== */}
+        <section
+          key="scene-2"
+          data-testid="scene-layer-2"
+          aria-label="Area of Focus"
+          aria-hidden={activeScene !== 2}
+          className={`absolute inset-0 h-full w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            activeScene === 2
+              ? "opacity-100 translate-y-0 pointer-events-auto z-10"
+              : "opacity-0 -translate-y-6 pointer-events-none z-0"
+          }`}
+        >
+          <div className="h-full w-full pt-[76px] pb-[52px] px-5 sm:pt-24 sm:pb-16 sm:px-10 flex flex-col justify-between max-w-6xl mx-auto pr-10 sm:pr-16">
+            {/* Top Marquee Header Row: Guaranteed Below Fixed Navbar */}
+            <div className="w-full shrink-0">
+              {/* 0ms Eyebrow */}
+              <p
+                className={`font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.24em] text-[#FB923C] font-medium mb-1.5 sm:mb-2 transition-all duration-700 delay-0 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  activeScene === 2
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 -translate-y-2"
+                }`}
+              >
+                03 &bull; Club Pillars
+              </p>
+
+              {/* 75ms Kinetic Marquee */}
+              <div
+                className={`transition-all duration-700 delay-[75ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  activeScene === 2
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 -translate-y-3"
+                }`}
+              >
                 <Marquee
                   repeat={4}
                   className="[--duration:28s] [--gap:2rem] sm:[--gap:2.5rem] p-0"
@@ -485,233 +565,288 @@ export function HomeStage() {
                   </div>
                 </Marquee>
               </div>
+            </div>
 
-              {/* 4 Unboxed Columns Over Rotating Geodesic Globe (2x2 compact on mobile, 4-col on desktop) */}
-              <div className="my-auto max-w-6xl w-full mx-auto px-5 sm:px-8 pr-11 sm:pr-16">
-                <div className="relative">
+            {/* 150ms 4 Unboxed Columns Over Rotating Geodesic Globe */}
+            <div
+              className={`my-auto w-full transition-all duration-700 delay-[150ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                activeScene === 2
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-4"
+              }`}
+            >
+              <div
+                data-testid="focus-pillars-grid"
+                className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4 lg:gap-6"
+              >
+                {FOCUS_COLUMNS.map((col, idx) => (
                   <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -inset-6 -z-10"
-                    style={{
-                      background:
-                        "radial-gradient(ellipse 85% 80% at 40% 55%, rgba(5, 5, 7, 0.86) 0%, rgba(5, 5, 7, 0.48) 65%, rgba(5, 5, 7, 0) 100%)",
-                    }}
-                  />
-
-                  <div
-                    data-testid="focus-pillars-grid"
-                    className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4 lg:gap-6"
+                    key={col.title}
+                    className="border-t border-white/15 hover:border-[#38BDF8]/60 pt-2.5 sm:pt-4 transition-colors"
                   >
-                    {FOCUS_COLUMNS.map((col, idx) => (
-                      <div
-                        key={col.title}
-                        className="border-t border-white/15 hover:border-[#38BDF8]/60 pt-2.5 sm:pt-4 transition-colors"
-                      >
-                        <span
-                          className={`font-mono text-[10px] sm:text-[11px] tracking-[0.2em] font-medium tabular-nums ${
-                            col.accent === "orange"
-                              ? "text-[#FB923C]"
-                              : "text-[#38BDF8]"
-                          }`}
+                    <span
+                      className={`font-mono text-[10px] sm:text-[11px] tracking-[0.2em] font-medium tabular-nums ${
+                        col.accent === "orange"
+                          ? "text-[#FB923C]"
+                          : "text-[#38BDF8]"
+                      }`}
+                    >
+                      0{idx + 1}
+                    </span>
+                    <h3 className="font-heading text-sm sm:text-xl font-semibold text-white mt-1 sm:mt-1.5 tracking-tight">
+                      {col.title}
+                    </h3>
+                    <ul className="mt-1.5 sm:mt-3 space-y-1 sm:space-y-1.5 text-[11px] sm:text-sm leading-snug text-[#A1A1AA]">
+                      {col.items.map((item) => (
+                        <li
+                          key={item}
+                          className="hover:text-white transition-colors"
                         >
-                          0{idx + 1}
-                        </span>
-                        <h3 className="font-heading text-sm sm:text-xl font-semibold text-white mt-1 sm:mt-1.5 tracking-tight">
-                          {col.title}
-                        </h3>
-                        <ul className="mt-1.5 sm:mt-3 space-y-1 sm:space-y-1.5 text-[11px] sm:text-sm leading-snug text-[#A1A1AA]">
-                          {col.items.map((item) => (
-                            <li
-                              key={item}
-                              className="hover:text-white transition-colors"
-                            >
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                </div>
+                ))}
               </div>
+            </div>
 
-              <div className="max-w-6xl w-full mx-auto px-5 sm:px-8 pr-11 sm:pr-16 flex items-center justify-between gap-4 border-t border-white/15 pt-3 sm:pt-4 text-[11px] font-mono uppercase tracking-[0.16em] text-[#A1A1AA] shrink-0">
-                <span className="whitespace-nowrap">
-                  <span className="text-[#FB923C]">03</span> / 05
-                  <span className="hidden sm:inline">
-                    {" "}
-                    &bull; Geodesic Network
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => goToScene(3, true)}
-                  className="inline-flex items-center gap-2 text-white/85 hover:text-[#FB923C] transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <span>How XOR Works</span>
-                  <ArrowDown
-                    className="w-3.5 h-3.5 text-[#FB923C]"
-                    strokeWidth={1.8}
-                  />
-                </button>
-              </div>
-            </motion.section>
-          )}
-
-          {/* ==================== SCENE 04: HOW XOR WORKS + 3D GYROSCOPE ==================== */}
-          {activeScene === 3 && (
-            <motion.section
-              key="scene-3"
-              data-testid="scene-layer-3"
-              aria-label="How XOR Works"
-              {...SCENE_TRANSITION}
-              className="h-full w-full pt-16 pb-14 sm:pt-24 sm:pb-10 flex flex-col justify-between max-w-6xl mx-auto px-5 sm:px-8 pr-11 sm:pr-16"
+            {/* Bottom Scroll Cue */}
+            <div
+              className={`flex items-center justify-between gap-4 border-t border-white/15 pt-3 sm:pt-4 text-[11px] font-mono uppercase tracking-[0.16em] text-[#A1A1AA] shrink-0 transition-all duration-700 delay-[150ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                activeScene === 2
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-2"
+              }`}
             >
-              {/* Top Heading Row (compact on mobile so Steps 01-03 never clip) */}
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2.5 sm:gap-4 border-b border-white/15 pb-3 sm:pb-5 mb-4 sm:mb-0 shrink-0">
-                <div>
-                  <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.24em] text-[#FB923C] font-medium">
-                    04 &bull; HOW XOR WORKS
-                  </p>
-                  <h2 className="font-heading uppercase font-semibold tracking-[-0.04em] leading-[1.02] text-white text-2xl sm:text-5xl lg:text-[3.75rem] mt-1 sm:mt-2">
-                    FROM IDEA TO CAMPUS DEMO
-                  </h2>
-                </div>
-                <Link
-                  href="/team"
-                  className="inline-flex items-center gap-2 text-[11px] sm:text-sm font-mono uppercase tracking-[0.14em] text-white border border-white/15 hover:border-[#38BDF8]/60 hover:text-[#38BDF8] px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-lg bg-[#0D0E14]/80 transition-colors whitespace-nowrap shrink-0 self-start sm:self-end"
-                >
-                  <span>Institutional Leadership &rarr;</span>
-                </Link>
-              </div>
-
-              {/* Clean 3-Column Unboxed Club Workflow Over 3D Gyroscope */}
-              <div className="my-auto py-1 sm:py-4 relative">
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute -inset-6 -z-10"
-                  style={{
-                    background:
-                      "radial-gradient(ellipse 85% 75% at 45% 50%, rgba(5, 5, 7, 0.86) 0%, rgba(5, 5, 7, 0.45) 65%, rgba(5, 5, 7, 0) 100%)",
-                  }}
+              <span className="whitespace-nowrap">
+                <span className="text-[#FB923C]">03</span> / 05
+                <span className="hidden sm:inline">
+                  {" "}
+                  &bull; Geodesic Network
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => goToScene(3, true)}
+                className="inline-flex items-center gap-2 text-white/85 hover:text-[#FB923C] transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span>How XOR Works</span>
+                <ArrowDown
+                  className="w-3.5 h-3.5 text-[#FB923C]"
+                  strokeWidth={1.8}
                 />
+              </button>
+            </div>
+          </div>
+        </section>
 
-                <div
-                  data-testid="how-xor-works-grid"
-                  className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-8 lg:gap-10"
+        {/* ==================== SCENE 04: HOW XOR WORKS + 3D GYROSCOPE ==================== */}
+        <section
+          key="scene-3"
+          data-testid="scene-layer-3"
+          aria-label="How XOR Works"
+          aria-hidden={activeScene !== 3}
+          className={`absolute inset-0 h-full w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            activeScene === 3
+              ? "opacity-100 translate-y-0 pointer-events-auto z-10"
+              : "opacity-0 -translate-y-6 pointer-events-none z-0"
+          }`}
+        >
+          <div className="h-full w-full pt-[76px] pb-[52px] px-5 sm:pt-24 sm:pb-16 sm:px-10 flex flex-col justify-between max-w-6xl mx-auto pr-10 sm:pr-16">
+            {/* Top Heading Row: Guaranteed Visible Below Navbar */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2.5 sm:gap-4 border-b border-white/15 pb-3 sm:pb-5 mb-4 sm:mb-0 shrink-0">
+              <div>
+                {/* 0ms Eyebrow */}
+                <p
+                  className={`font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.24em] text-[#FB923C] font-medium transition-all duration-700 delay-0 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    activeScene === 3
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-2"
+                  }`}
                 >
-                  {howItWorksSteps.map((step, idx) => {
-                    const isSky = idx === 1;
-                    return (
-                      <div
-                        key={step.stepNumber}
-                        data-testid={`workflow-step-${step.stepNumber}`}
-                        className="group border-t border-white/15 hover:border-[#38BDF8]/60 py-2.5 md:pt-5 md:pb-0 flex flex-col gap-1 md:gap-0 transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={`font-mono text-lg sm:text-3xl font-semibold tracking-tight tabular-nums leading-none ${
-                              isSky ? "text-[#38BDF8]" : "text-[#FB923C]"
-                            }`}
-                          >
-                            {step.stepNumber}
-                          </span>
-                          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
-                            Step {step.stepNumber}
-                          </span>
-                        </div>
-
-                        <h3 className="font-heading text-base sm:text-2xl font-semibold text-white tracking-tight md:mt-4 leading-tight">
-                          {step.title}
-                        </h3>
-
-                        <p className="text-xs sm:text-base text-[#A1A1AA] leading-snug sm:leading-relaxed md:mt-3">
-                          {idx === 0 ? (
-                            <>
-                              Register with your LAEC details and generate your{" "}
-                              <span className="font-mono text-[#38BDF8]">
-                                XOR-26-XXXX
-                              </span>{" "}
-                              member pass.
-                            </>
-                          ) : (
-                            step.description
-                          )}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-4 border-t border-white/15 pt-3 sm:pt-4 text-[11px] font-mono uppercase tracking-[0.16em] text-[#A1A1AA] shrink-0">
-                <span className="whitespace-nowrap">
-                  <span className="text-[#FB923C]">04</span> / 05
-                  <span className="hidden sm:inline">
-                    {" "}
-                    &bull; Orbital Gyroscope
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => goToScene(4, true)}
-                  className="inline-flex items-center gap-2 text-white/85 hover:text-[#FB923C] transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <span>Upcoming Drop</span>
-                  <ArrowDown
-                    className="w-3.5 h-3.5 text-[#FB923C]"
-                    strokeWidth={1.8}
-                  />
-                </button>
-              </div>
-            </motion.section>
-          )}
-
-          {/* ==================== SCENE 05: YET TO ANNOUNCE + WAVING ASTRONAUT ==================== */}
-          {activeScene === 4 && (
-            <motion.section
-              key="scene-4"
-              data-testid="scene-layer-4"
-              aria-label="Upcoming Drop"
-              {...SCENE_TRANSITION}
-              className="h-full w-full pt-20 sm:pt-24 pb-6 sm:pb-10 flex flex-col justify-between max-w-6xl mx-auto px-5 sm:px-8 pr-11 sm:pr-16"
-            >
-              {/* Top Eyebrow */}
-              <div className="flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.24em]">
-                <span className="text-[#FB923C] font-medium">
-                  05 &bull; COHORT 2026
-                </span>
-                <span className="hidden sm:inline-flex items-center gap-2 text-[#38BDF8]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8]" />
-                  <span>UPCOMING DROP</span>
-                </span>
-              </div>
-
-              {/* Center Oversized Typography Over Waving 3D Astronaut */}
-              <div className="my-auto flex flex-col items-center text-center relative">
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute -inset-10 -z-10"
-                  style={{
-                    background:
-                      "radial-gradient(ellipse 68% 58% at 50% 50%, rgba(5, 5, 7, 0.78) 0%, rgba(5, 5, 7, 0.34) 60%, rgba(5, 5, 7, 0) 100%)",
-                  }}
-                />
-
-                <p className="font-mono text-xs uppercase tracking-[0.26em] mb-3 sm:mb-4 flex items-center gap-2">
-                  <span className="text-[#FB923C] font-semibold">
-                    COHORT 2026
-                  </span>
-                  <span className="text-white/30" aria-hidden="true">
-                    &bull;
-                  </span>
-                  <span className="text-[#38BDF8]">UPCOMING DROP</span>
+                  04 &bull; HOW XOR WORKS
                 </p>
 
-                <h2 className="font-heading uppercase font-semibold tracking-[-0.04em] leading-none text-white text-4xl sm:text-6xl lg:text-[5.5rem]">
-                  YET TO ANNOUNCE
+                {/* 75ms Headline */}
+                <h2
+                  className={`font-heading uppercase font-semibold tracking-[-0.04em] leading-[1.02] text-white text-2xl sm:text-5xl lg:text-[3.75rem] mt-1 sm:mt-2 transition-all duration-700 delay-[75ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    activeScene === 3
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-3"
+                  }`}
+                >
+                  FROM IDEA TO CAMPUS DEMO
                 </h2>
+              </div>
 
+              {/* 75ms Institutional Link */}
+              <Link
+                href="/team"
+                className={`inline-flex items-center gap-2 text-[11px] sm:text-sm font-mono uppercase tracking-[0.14em] text-white border border-white/15 hover:border-[#38BDF8]/60 hover:text-[#38BDF8] px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-lg bg-[#0D0E14]/80 transition-all duration-700 delay-[75ms] ease-[cubic-bezier(0.22,1,0.36,1)] whitespace-nowrap shrink-0 self-start sm:self-end ${
+                  activeScene === 3
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 -translate-y-2"
+                }`}
+              >
+                <span>Institutional Leadership &rarr;</span>
+              </Link>
+            </div>
+
+            {/* 150ms 3-Column Unboxed Club Workflow */}
+            <div
+              className={`my-auto py-1 sm:py-4 transition-all duration-700 delay-[150ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                activeScene === 3
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-4"
+              }`}
+            >
+              <div
+                data-testid="how-xor-works-grid"
+                className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-8 lg:gap-10"
+              >
+                {howItWorksSteps.map((step, idx) => {
+                  const isSky = idx === 1;
+                  return (
+                    <div
+                      key={step.stepNumber}
+                      data-testid={`workflow-step-${step.stepNumber}`}
+                      className="group border-t border-white/15 hover:border-[#38BDF8]/60 py-2.5 md:pt-5 md:pb-0 flex flex-col gap-1 md:gap-0 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`font-mono text-lg sm:text-3xl font-semibold tracking-tight tabular-nums leading-none ${
+                            isSky ? "text-[#38BDF8]" : "text-[#FB923C]"
+                          }`}
+                        >
+                          {step.stepNumber}
+                        </span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
+                          Step {step.stepNumber}
+                        </span>
+                      </div>
+
+                      <h3 className="font-heading text-base sm:text-2xl font-semibold text-white tracking-tight md:mt-4 leading-tight">
+                        {step.title}
+                      </h3>
+
+                      <p className="text-xs sm:text-base text-[#A1A1AA] leading-snug sm:leading-relaxed md:mt-3">
+                        {idx === 0 ? (
+                          <>
+                            Register with your LAEC details and generate your{" "}
+                            <span className="font-mono text-[#38BDF8]">
+                              XOR-26-XXXX
+                            </span>{" "}
+                            member pass.
+                          </>
+                        ) : (
+                          step.description
+                        )}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bottom Scroll Cue */}
+            <div
+              className={`flex items-center justify-between gap-4 border-t border-white/15 pt-3 sm:pt-4 text-[11px] font-mono uppercase tracking-[0.16em] text-[#A1A1AA] shrink-0 transition-all duration-700 delay-[150ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                activeScene === 3
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-2"
+              }`}
+            >
+              <span className="whitespace-nowrap">
+                <span className="text-[#FB923C]">04</span> / 05
+                <span className="hidden sm:inline">
+                  {" "}
+                  &bull; Orbital Gyroscope
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => goToScene(4, true)}
+                className="inline-flex items-center gap-2 text-white/85 hover:text-[#FB923C] transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span>Upcoming Drop</span>
+                <ArrowDown
+                  className="w-3.5 h-3.5 text-[#FB923C]"
+                  strokeWidth={1.8}
+                />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* ==================== SCENE 05: YET TO ANNOUNCE + WAVING ASTRONAUT ==================== */}
+        <section
+          key="scene-4"
+          data-testid="scene-layer-4"
+          aria-label="Upcoming Drop"
+          aria-hidden={activeScene !== 4}
+          className={`absolute inset-0 h-full w-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            activeScene === 4
+              ? "opacity-100 translate-y-0 pointer-events-auto z-10"
+              : "opacity-0 -translate-y-6 pointer-events-none z-0"
+          }`}
+        >
+          <div className="h-full w-full pt-[76px] pb-[52px] px-5 sm:pt-24 sm:pb-16 sm:px-10 flex flex-col justify-between max-w-6xl mx-auto pr-10 sm:pr-16">
+            {/* 0ms Top Eyebrow */}
+            <div
+              className={`flex items-center justify-between text-[11px] font-mono uppercase tracking-[0.24em] transition-all duration-700 delay-0 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                activeScene === 4
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-2"
+              }`}
+            >
+              <span className="text-[#FB923C] font-medium">
+                05 &bull; COHORT 2026
+              </span>
+              <span className="hidden sm:inline-flex items-center gap-2 text-[#38BDF8]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8]" />
+                <span>UPCOMING DROP</span>
+              </span>
+            </div>
+
+            {/* Center Oversized Typography Over Waving 3D Astronaut */}
+            <div className="my-auto flex flex-col items-center text-center relative">
+              {/* 0ms Sub-Eyebrow */}
+              <p
+                className={`font-mono text-xs uppercase tracking-[0.26em] mb-3 sm:mb-4 flex items-center gap-2 transition-all duration-700 delay-0 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  activeScene === 4
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 -translate-y-2"
+                }`}
+              >
+                <span className="text-[#FB923C] font-semibold">
+                  COHORT 2026
+                </span>
+                <span className="text-white/30" aria-hidden="true">
+                  &bull;
+                </span>
+                <span className="text-[#38BDF8]">UPCOMING DROP</span>
+              </p>
+
+              {/* 75ms Headline */}
+              <h2
+                className={`font-heading uppercase font-semibold tracking-[-0.04em] leading-none text-white text-4xl sm:text-6xl lg:text-[5.5rem] transition-all duration-700 delay-[75ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  activeScene === 4
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 -translate-y-3"
+                }`}
+              >
+                YET TO ANNOUNCE
+              </h2>
+
+              {/* 150ms Body & Buttons */}
+              <div
+                className={`transition-all duration-700 delay-[150ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  activeScene === 4
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 -translate-y-4"
+                }`}
+              >
                 <p className="mt-4 sm:mt-5 max-w-xl text-sm sm:text-base text-[#A1A1AA] leading-relaxed">
                   First campus orientation and build sprint schedule dropping
                   soon in the broadcast channel.
@@ -733,21 +868,27 @@ export function HomeStage() {
                   </Link>
                 </div>
               </div>
+            </div>
 
-              {/* Bottom Metadata Row: ONLY LAEC Bidar, Karnataka & EST. 2026 */}
-              <div className="border-t border-white/15 pt-4 sm:pt-5 flex items-center justify-between gap-4 text-xs font-mono text-[#A1A1AA]">
-                <div className="inline-flex items-center gap-2 text-white/90 whitespace-nowrap">
-                  <MapPin className="w-3.5 h-3.5 text-[#FB923C] shrink-0" />
-                  <span>{BRAND_CONFIG.location}</span>
-                </div>
-
-                <div className="text-[#38BDF8] tracking-[0.2em] uppercase tabular-nums whitespace-nowrap">
-                  EST. {BRAND_CONFIG.estYear}
-                </div>
+            {/* 150ms Bottom Metadata Row */}
+            <div
+              className={`border-t border-white/15 pt-4 sm:pt-5 flex items-center justify-between gap-4 text-xs font-mono text-[#A1A1AA] transition-all duration-700 delay-[150ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                activeScene === 4
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 -translate-y-2"
+              }`}
+            >
+              <div className="inline-flex items-center gap-2 text-white/90 whitespace-nowrap">
+                <MapPin className="w-3.5 h-3.5 text-[#FB923C] shrink-0" />
+                <span>{BRAND_CONFIG.location}</span>
               </div>
-            </motion.section>
-          )}
-        </AnimatePresence>
+
+              <div className="text-[#38BDF8] tracking-[0.2em] uppercase tabular-nums whitespace-nowrap">
+                EST. {BRAND_CONFIG.estYear}
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );

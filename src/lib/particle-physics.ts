@@ -1,9 +1,7 @@
 import {
-  PARTICLE_MORPH_LERP_60FPS,
   SCENE_META,
   clamp01,
   clampSceneIndex,
-  getMorphLerpFactor,
   getMorphScatterImpulse,
   type SceneStageName,
 } from "@/lib/stage-controller";
@@ -548,25 +546,25 @@ export function getSceneAnchorConfig(
   if (idx === 0) {
     return {
       stage,
-      anchorX: isMobile ? 0.54 : 0.72,
-      anchorY: isMobile ? 0.68 : 0.54,
-      scale: isMobile ? 0.76 : 1.08,
+      anchorX: isMobile ? 0.5 : 0.72,
+      anchorY: isMobile ? 0.66 : 0.54,
+      scale: isMobile ? 0.72 : 1.08,
     };
   }
   if (idx === 1) {
     return {
       stage,
       anchorX: isMobile ? 0.5 : 0.3,
-      anchorY: isMobile ? 0.7 : 0.56,
-      scale: isMobile ? 0.74 : 1.05,
+      anchorY: isMobile ? 0.66 : 0.56,
+      scale: isMobile ? 0.72 : 1.05,
     };
   }
   if (idx === 2) {
     return {
       stage,
-      anchorX: isMobile ? 0.52 : 0.73,
-      anchorY: isMobile ? 0.68 : 0.54,
-      scale: isMobile ? 0.82 : 1.32,
+      anchorX: isMobile ? 0.5 : 0.73,
+      anchorY: isMobile ? 0.66 : 0.54,
+      scale: isMobile ? 0.72 : 1.32,
     };
   }
   if (idx === 3) {
@@ -574,22 +572,22 @@ export function getSceneAnchorConfig(
     return {
       stage,
       anchorX: isMobile ? 0.5 : 0.7,
-      anchorY: isMobile ? 0.68 : 0.48,
+      anchorY: isMobile ? 0.66 : 0.48,
       scale: isMobile ? 0.72 : 1.06,
     };
   }
   return {
     stage,
     anchorX: 0.5,
-    anchorY: isMobile ? 0.52 : 0.53,
-    scale: isMobile ? 0.86 : 1.2,
+    anchorY: isMobile ? 0.66 : 0.53,
+    scale: isMobile ? 0.72 : 1.2,
   };
 }
 
 /**
  * Smoothly steps each particle toward the locked active scene's 3D formation
- * using a balanced ~0.055 per-frame lerp (60fps) and a gentle mid-transition
- * radial scatter impulse sin(progress * Math.PI) (~850-950ms settling time).
+ * using critically-damped spring physics (vx = (vx + (tx - x) * 0.042) * 0.80)
+ * plus a gentle tangential swirl impulse during transitions (~850ms settling time).
  */
 export function stepMorphParticles(
   particles: SpaceParticle[],
@@ -599,17 +597,17 @@ export function stepMorphParticles(
   dt: number,
   isStatic = false
 ): void {
-  const safeDt = Math.min(Math.max(dt, 0.001), 0.05);
   const sceneIdx = clampSceneIndex(targetScene);
   const scatter = isStatic ? 0 : getMorphScatterImpulse(transitionProgress);
-  const lerpAlpha = isStatic
-    ? 1
-    : getMorphLerpFactor(safeDt, PARTICLE_MORPH_LERP_60FPS);
 
-  // Subtle orbital swirl peaking cleanly at transition midpoint
+  // Gentle tangential swirl impulse during transitions
   const swirlAngle = scatter * 0.65;
   const cosS = Math.cos(swirlAngle);
   const sinS = Math.sin(swirlAngle);
+
+  // Critically-damped spring physics: vx = (vx + (tx - x) * 0.042) * 0.80
+  const springK = 0.042;
+  const damping = 0.8;
 
   for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
@@ -618,10 +616,10 @@ export function stepMorphParticles(
     const rotatedX = target.x * cosS - target.z * sinS;
     const rotatedZ = target.x * sinS + target.z * cosS;
 
-    const breathe = isStatic ? 0 : Math.sin(timeSec * 1.15 + p.phase) * 2.0;
-    const goalX = rotatedX + p.scatterDir.x * scatter * 0.52 + breathe;
-    const goalY = target.y + p.scatterDir.y * scatter * 0.44 + breathe * 0.65;
-    const goalZ = rotatedZ + p.scatterDir.z * scatter * 0.52;
+    const breathe = isStatic ? 0 : Math.sin(timeSec * 1.15 + p.phase) * 1.8;
+    const goalX = rotatedX + p.scatterDir.x * scatter * 0.45 + breathe;
+    const goalY = target.y + p.scatterDir.y * scatter * 0.40 + breathe * 0.6;
+    const goalZ = rotatedZ + p.scatterDir.z * scatter * 0.45;
 
     if (isStatic) {
       p.x = target.x;
@@ -631,9 +629,13 @@ export function stepMorphParticles(
       p.vy = 0;
       p.vz = 0;
     } else {
-      p.x += (goalX - p.x) * lerpAlpha;
-      p.y += (goalY - p.y) * lerpAlpha;
-      p.z += (goalZ - p.z) * lerpAlpha;
+      p.vx = (p.vx + (goalX - p.x) * springK) * damping;
+      p.vy = (p.vy + (goalY - p.y) * springK) * damping;
+      p.vz = (p.vz + (goalZ - p.z) * springK) * damping;
+
+      p.x += p.vx;
+      p.y += p.vy;
+      p.z += p.vz;
     }
   }
 }
