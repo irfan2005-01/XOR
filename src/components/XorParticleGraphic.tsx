@@ -89,18 +89,20 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
 
     // Precomputed 0-100 alpha RGBA strings to eliminate per-frame string allocations
     const rgbaLookup: string[][] = [[], [], []];
-    const haloLookup: string[][] = [[], [], []];
     for (let c = 0; c < COLOR_COUNT; c++) {
       const [r, g, b] = COSMIC_PALETTE_RGB[c];
       for (let a = 0; a <= 100; a++) {
         const normA = a / 100;
         rgbaLookup[c][a] = `rgba(${r}, ${g}, ${b}, ${normA.toFixed(2)})`;
-        haloLookup[c][a] = `rgba(${r}, ${g}, ${b}, ${(normA * (c === 0 ? 0.22 : 0.3)).toFixed(3)})`;
       }
     }
 
+    const sheenStyles = COSMIC_PALETTE_RGB.map(
+      ([r, g, b]) => `rgba(${r}, ${g}, ${b}, 0.12)`
+    );
+
     const starFillStyles: string[] = [];
-    const STAR_ALPHAS = [0.18, 0.34, 0.54];
+    const STAR_ALPHAS = [0.12, 0.22, 0.34];
     for (let c = 0; c < COLOR_COUNT; c++) {
       const [r, g, b] = COSMIC_PALETTE_RGB[c];
       for (let t = 0; t < 3; t++) {
@@ -253,6 +255,9 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
         currentScale *
         (isMobile ? 1.0 : 1.06);
 
+      const rMin = isMobile ? 0.85 : 0.95;
+      const rMax = isMobile ? 1.85 : 2.15;
+
       // 3. Project 3D points
       let visibleCount = 0;
       for (let i = 0; i < particles.length; i++) {
@@ -279,21 +284,23 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
 
         const twinkle = isStatic
           ? 1
-          : 0.84 + 0.16 * Math.sin(timeSec * p.twinkleSpeed + p.phase);
+          : 0.90 + 0.10 * Math.sin(timeSec * p.twinkleSpeed + p.phase);
         
-        // Depth-scaled opacity: 0.22 far -> 0.95 near
-        const depthOpacity =
-          (0.22 + 0.73 * proj.depthNorm) * p.baseAlpha * twinkle;
+        // Balanced depth-mapped opacity:
+        // #FFFFFF: 0.28 (far) -> 0.76 (near)
+        // #FB923C / #38BDF8 accents: 0.38 (far) -> 0.88 (near)
+        const isAccent = p.colorIdx !== 0;
+        const baseFar = isAccent ? 0.38 : 0.28;
+        const baseNear = isAccent ? 0.88 : 0.76;
+        const depthAlpha =
+          (baseFar + (baseNear - baseFar) * proj.depthNorm) * p.baseAlpha * twinkle;
         const alphaIdx = Math.min(
           100,
-          Math.max(0, Math.round(depthOpacity * 100))
+          Math.max(0, Math.round(depthAlpha * 100))
         );
 
-        // Depth-scaled radius
-        const drawRadius = Math.max(
-          0.72,
-          p.radius * proj.perspective * (0.65 + 0.55 * proj.depthNorm)
-        );
+        // Balanced depth-scaled radius: 0.95px far -> 2.15px near (desktop); 0.85px -> 1.85px (mobile)
+        const drawRadius = rMin + (rMax - rMin) * proj.depthNorm;
 
         projX[visibleCount] = proj.screenX;
         projY[visibleCount] = proj.screenY;
@@ -309,8 +316,8 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
       const visibleIndices = sortIndices.subarray(0, visibleCount);
       visibleIndices.sort((a, b) => projDepth[a] - projDepth[b]);
 
-      // 5. Draw smooth anti-aliased glowing 3D spheres with subtle additive luminosity
-      ctx.globalCompositeOperation = "lighter";
+      // 5. Draw crisp, balanced 3D stardust with standard source-over blending
+      ctx.globalCompositeOperation = "source-over";
 
       for (let s = 0; s < visibleCount; s++) {
         const idx = visibleIndices[s];
@@ -321,22 +328,19 @@ export function XorParticleGraphic({ activeScene }: XorParticleGraphicProps) {
         const a = projAlphaIdx[idx];
         const depthNorm = projDepth[idx];
 
-        // Luminous halo for front-depth particles
-        if (depthNorm > 0.52 && a > 22) {
-          ctx.fillStyle = haloLookup[c][a];
+        // Subtle front-layer depth sheen for frontmost 20% of particles (depthNorm > 0.8)
+        if (depthNorm > 0.8) {
+          ctx.fillStyle = sheenStyles[c];
           ctx.beginPath();
-          ctx.arc(x, y, r * 2.6, 0, Math.PI * 2);
+          ctx.arc(x, y, r * 1.85, 0, Math.PI * 2);
           ctx.fill();
         }
 
-        // Crisp anti-aliased glowing sphere
         ctx.fillStyle = rgbaLookup[c][a];
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
       }
-
-      ctx.globalCompositeOperation = "source-over";
     };
 
     syncCanvasSize();
